@@ -22,6 +22,7 @@ import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothGatt
 import android.bluetooth.BluetoothGattCallback
 import android.bluetooth.BluetoothGattCharacteristic
+import android.bluetooth.BluetoothGattDescriptor
 import android.bluetooth.BluetoothGattService
 import android.bluetooth.BluetoothProfile
 import android.os.Build
@@ -36,7 +37,13 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconToggleButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -48,6 +55,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.unit.dp
@@ -58,7 +66,16 @@ import com.example.platform.connectivity.bluetooth.ble.server.GATTServerSampleSe
 import com.example.platform.connectivity.bluetooth.ble.server.GATTServerSampleService.Companion.SERVICE_UUID
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import java.math.RoundingMode
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
+import java.text.DecimalFormat
+import java.util.UUID
 import kotlin.random.Random
+
+// =====================================================================================
+// |                                Main Composable
+// =====================================================================================
 
 @OptIn(ExperimentalAnimationApi::class)
 @SuppressLint("MissingPermission")
@@ -104,9 +121,10 @@ fun ConnectDeviceScreen(device: BluetoothDevice, onClose: () -> Unit) {
     val characteristic by remember(service) {
         mutableStateOf(service?.getCharacteristic(CHARACTERISTIC_UUID))
     }
+    var indications by remember { mutableStateOf(false) }
 
     // This effect will handle the connection and notify when the state changes
-    BLEConnectEffect(device = device) {
+    BLEConnectEffect(device = device, indications = indications) {
         // update our state to recompose the UI
         state = it
     }
@@ -124,6 +142,13 @@ fun ConnectDeviceScreen(device: BluetoothDevice, onClose: () -> Unit) {
         Text(text = "MTU: ${state?.mtu}")
         Text(text = "Services: ${state?.services?.joinToString { it.uuid.toString() + " " + it.type }}")
         Text(text = "Message sent: ${state?.messageSent}")
+
+        val service = state?.services?.find { it.uuid == SERVICE_UUID }
+        val characteristic = service?.getCharacteristic(CHARACTERISTIC_UUID)
+        Log.d("Sensor Data", "Message Value: ${state?.messageReceived}")
+        Log.d("Sensor Data", "Characteristic Value: ${characteristic}")
+        Log.d("Sensor Data", "Service Value: ${service}")
+
         Text(text = "Message received: ${state?.messageReceived}")
         Button(
             onClick = {
@@ -171,11 +196,48 @@ fun ConnectDeviceScreen(device: BluetoothDevice, onClose: () -> Unit) {
         ) {
             Text(text = "Read characteristic")
         }
+
+        Button(
+            onClick = {
+                indications = !indications
+                Log.d("BLE Data", "Indications: $indications")
+
+                val characteristic = state?.gatt
+                    ?.getService(SERVICE_UUID)
+                    ?.getCharacteristic(CHARACTERISTIC_UUID)
+
+                if (characteristic != null) {
+                    state?.gatt?.setCharacteristicNotification(characteristic, indications)
+
+                    val descriptor = characteristic.getDescriptor(
+                                UUID.fromString("00002902-0000-1000-8000-00805F9B34FB")
+                    )
+                    descriptor?.value = if (indications)
+                        BluetoothGattDescriptor.ENABLE_INDICATION_VALUE
+                    else
+                        BluetoothGattDescriptor.DISABLE_NOTIFICATION_VALUE
+
+                    Log.d("BLE Data", "${descriptor?.value}")
+
+                    state?.gatt?.writeDescriptor(descriptor)
+                }
+            },
+            colors = ButtonDefaults.buttonColors(
+                containerColor = if (indications) Color.Green else Color.Gray
+            )
+        ) {
+            Text(if (indications) "INDICATIONS ON" else "INDICATIONS OFF")
+        }
+
         Button(onClick = onClose) {
             Text(text = "Close")
         }
     }
 }
+
+// =====================================================================================
+// |                                 Functions
+// =====================================================================================
 
 /**
  * Writes "hello world" to the server characteristic
@@ -209,6 +271,8 @@ internal fun Int.toConnectionStateString() = when (this) {
     else -> "N/A"
 }
 
+
+// ================== Device State ==================
 private data class DeviceConnectionState(
     val gatt: BluetoothGatt?,
     val connectionState: Int,
@@ -222,12 +286,14 @@ private data class DeviceConnectionState(
     }
 }
 
+// ================== Bluetooth Logic ==================
 @SuppressLint("InlinedApi")
 @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
 @Composable
 private fun BLEConnectEffect(
     device: BluetoothDevice,
     lifecycleOwner: LifecycleOwner = LocalLifecycleOwner.current,
+    indications: Boolean,
     onStateChange: (DeviceConnectionState) -> Unit,
 ) {
     val context = LocalContext.current
@@ -238,10 +304,19 @@ private fun BLEConnectEffect(
         mutableStateOf(DeviceConnectionState.None)
     }
 
+    // Disposable -> GATT connection is tied to this composables lifetime, on exit, calls dispose function which calls the gatt.close()
     DisposableEffect(lifecycleOwner, device) {
-        // This callback will notify us when things change in the GATT connection so we can update
-        // our state
+
+        // =====================================================================================
+        // |                            GATT Connection Callbacks
+        // =====================================================================================
+        // | This callback will notify us when things change in the GATT connection so we can update
+        // | our state
+        // |
+        // | Functions are called automatically, leading to change in state, leading to recomposition
+        // =====================================================================================
         val callback = object : android.bluetooth.BluetoothGattCallback() {
+
             override fun onConnectionStateChange(
                 gatt: BluetoothGatt,
                 status: Int,
@@ -267,9 +342,20 @@ private fun BLEConnectEffect(
                 currentOnStateChange(state)
             }
 
+            @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
             override fun onServicesDiscovered(gatt: BluetoothGatt, status: Int) {
                 super.onServicesDiscovered(gatt, status)
                 state = state.copy(services = gatt.services)
+
+                // ------------------ Print all Services and Characteristics ------------------
+                Log.d("GATT Data", "FOUND, status: ${status}")
+                gatt.services.forEach { service ->
+                    Log.d("GATT Data", "Service: ${service.uuid}")
+                    service.characteristics.forEach { characteristic ->
+                        Log.d("GATT Data", "Service: ${characteristic.uuid}")
+                    }
+                }
+
                 currentOnStateChange(state)
             }
 
@@ -305,8 +391,56 @@ private fun BLEConnectEffect(
                 doOnRead(value)
             }
 
+            override fun onDescriptorWrite(
+                gatt: BluetoothGatt,
+                descriptor: BluetoothGattDescriptor,
+                status: Int
+            ) {
+                super.onDescriptorWrite(gatt, descriptor, status)
+                Log.d("BLE Data", "Descriptor write status: $status value=${descriptor.value?.contentToString()}")
+            }
+
+            // ------------------ Characteristic Change ------------------
+            /* Old API (android API <=12) : uses 2 arg method
+             * New API (android API >=13) : uses 3 arg method
+             */
+            override fun onCharacteristicChanged(
+                gatt: BluetoothGatt?,
+                characteristic: BluetoothGattCharacteristic?
+            ) {
+                super.onCharacteristicChanged(gatt, characteristic)
+                Log.d("BLE Data", "(2 arg)READ AUTOMATICALLY")
+                val value = characteristic?.value
+                doOnRead(value ?: byteArrayOf())
+            }
+
+            override fun onCharacteristicChanged(
+                gatt: BluetoothGatt,
+                characteristic: BluetoothGattCharacteristic,
+                value: ByteArray
+            ) {
+                super.onCharacteristicChanged(gatt, characteristic, value)
+                Log.d("BLE Data", "(3 arg)READ AUTOMATICALLY")
+                doOnRead(value)
+            }
+            // ---------------------------------------------
+
+            fun roundOffDecimal(number: Number): Double? {
+                val df = DecimalFormat("#.##")
+                df.roundingMode = RoundingMode.CEILING
+                return df.format(number).toDouble()
+            }
+
             private fun doOnRead(value: ByteArray) {
-                state = state.copy(messageReceived = value.decodeToString())
+                val buffer = ByteBuffer.wrap(value).order(ByteOrder.LITTLE_ENDIAN)
+                val accelX = roundOffDecimal(buffer.float)
+                val accelY = roundOffDecimal(buffer.float)
+                val accelZ = roundOffDecimal(buffer.float)
+                Log.d("Sensor Data", "Accel: x=$accelX y=$accelY z=$accelZ")
+
+                val messageReceived = value.decodeToString()
+                Log.d("Sensor Data", "raw value: ${value}, Decoded: ${messageReceived}")
+                state = state.copy(messageReceived = "Accel: x=$accelX y=$accelY z=$accelZ")
                 currentOnStateChange(state)
             }
         }
