@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.example.platform.connectivity.bluetooth.ble
+package com.example.esp32_mpu6050_mobile_data_collection.BLE
 
 import android.Manifest
 import android.annotation.SuppressLint
@@ -72,7 +72,7 @@ import kotlinx.coroutines.delay
 @RequiresApi(Build.VERSION_CODES.M)
 @Composable
 fun FindBLEDevicesSample() {
-    BluetoothSampleBox {
+    _root_ide_package_.com.example.platform.connectivity.bluetooth.ble.BluetoothSampleBox {
         FindDevicesScreen {
             Log.d("FindDeviceSample", "Name: ${it.name} Address: ${it.address} Type: ${it.type}")
         }

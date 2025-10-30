@@ -42,7 +42,7 @@ import androidx.core.app.ActivityCompat
 import androidx.core.app.NotificationChannelCompat
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
-import com.example.esp32_mpu6050_mobile_data_collection.BLE_reference.toConnectionStateString
+import com.example.esp32_mpu6050_mobile_data_collection.BLE.toConnectionStateString
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
@@ -54,7 +54,7 @@ import java.util.UUID
  * A FGS that runs the GATTServer by advertising and allowing devices to connect
  *
  * @see com.example.platform.connectivity.bluetooth.ble.server.GATTServerSample
- * @see com.example.esp32_mpu6050_mobile_data_collection.BLE_reference.ConnectGATTSample
+ * @see com.example.esp32_mpu6050_mobile_data_collection.BLE.ConnectGATTSample
  */
 @RequiresApi(Build.VERSION_CODES.M)
 class GATTServerSampleService : Service() {

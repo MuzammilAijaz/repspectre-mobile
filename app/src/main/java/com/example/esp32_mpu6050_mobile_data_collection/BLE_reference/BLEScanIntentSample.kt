@@ -55,6 +55,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import com.example.esp32_mpu6050_mobile_data_collection.BLE.BluetoothDeviceItem
 import com.example.platform.connectivity.bluetooth.ble.server.GATTServerSampleService.Companion.SERVICE_UUID
 import com.example.platform.shared.PermissionBox
 import kotlinx.coroutines.flow.MutableStateFlow

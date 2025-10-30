@@ -13,7 +13,7 @@ class AccelerationRepository(
     private val accelerationDao: AccelerationDao
 ) {
     fun getAllItemsStream(): Flow<List<AccelerationItem>> = accelerationDao.getAllItems()
-    fun getItem(id: Int): Float<AccelerationItem> = accelerationDao.getItem(id)
+    fun getItem(id: Int): Flow<AccelerationItem> = accelerationDao.getItem(id)
 
     suspend fun insertItem(item: AccelerationItem) = accelerationDao.insertItem(item)
 }
