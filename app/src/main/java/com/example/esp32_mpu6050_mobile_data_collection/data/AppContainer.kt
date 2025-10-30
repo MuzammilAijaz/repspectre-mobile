@@ -5,16 +5,16 @@
  * |    : ex. Repository
  * | -> Holds the instance of repository instantiated with the DAO object
  * |
- * ===================================================================================== */
+ * ====================================================================================== */
 
 package com.example.esp32_mpu6050_mobile_data_collection.data
 
 import android.content.Context
 
-class AppContainer(private val context: Context){
+class AppContainer(private val context: Context) {
 
-    private val accelerationRepository: AccelerationRepository by lazy {
-        AccelerationRepository(SensorDatabase.getDatabase(context).accelerationDao()) // pass the DAO object
+    val accelerationRepository: AccelerationRepository by lazy {
+        AccelerationRepository(SensorDatabase.getDatabase(context).accelerationDao())
     }
 
 }

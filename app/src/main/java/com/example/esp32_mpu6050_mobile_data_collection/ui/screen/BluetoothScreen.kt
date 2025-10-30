@@ -51,6 +51,7 @@ import kotlinx.coroutines.launch
 import java.util.UUID
 import kotlin.random.Random
 import androidx.compose.runtime.collectAsState
+import com.example.esp32_mpu6050_mobile_data_collection.ui.view.AppViewModel
 
 // =====================================================================================
 // |                                Main Composable
@@ -88,6 +89,8 @@ fun ConnectGATTSample() {
 @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
 @Composable
 fun ConnectDeviceScreen(device: BluetoothDevice, viewModel: BluetoothViewModel, onClose: () -> Unit) {
+    val appViewModel: AppViewModel = viewModel(factory = AppViewModel.Factory)
+
     val scope = rememberCoroutineScope()
 
     // Keeps track of the last connection state with the device
@@ -128,6 +131,8 @@ fun ConnectDeviceScreen(device: BluetoothDevice, viewModel: BluetoothViewModel, 
         Log.d("Sensor Data", "Service Value: ${service}")
 
         Text(text = "Message received: ${state?.messageReceived}")
+        appViewModel.insertValue(state?.messageReceived ?: "Accel: x=0.0 y=0.0 z=0.0")
+
         Button(
             onClick = {
                 scope.launch(Dispatchers.IO) {
@@ -225,7 +230,7 @@ private fun BLEConnectEffect(
 ) {
     val context: Context = LocalContext.current
 
-    // Disposable -> GATT connection is tied to this composables lifetime, on exit, calls dispose function which calls the gatt.close()
+    // Disposable -> GATT connection is tied to this composable lifetime, on exit, calls dispose function which calls the gatt.close()
     DisposableEffect(lifecycleOwner, device) {
 
         val callback = viewModel.getBleCallback()
