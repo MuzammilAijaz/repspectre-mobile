@@ -72,7 +72,7 @@ import kotlinx.coroutines.delay
 @RequiresApi(Build.VERSION_CODES.M)
 @Composable
 fun FindBLEDevicesSample() {
-    _root_ide_package_.com.example.platform.connectivity.bluetooth.ble.BluetoothSampleBox {
+    BluetoothSampleBox {
         FindDevicesScreen {
             Log.d("FindDeviceSample", "Name: ${it.name} Address: ${it.address} Type: ${it.type}")
         }

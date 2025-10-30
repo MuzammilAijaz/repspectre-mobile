@@ -24,8 +24,8 @@ interface AccelerationDao {
     @Update()
     suspend fun updateItem(item: AccelerationItem)
 
-    @Delete()
-    suspend fun deleteItem(id: Int)
+    @Delete
+    suspend fun deleteItem(item: AccelerationItem)
 
     @Query("SELECT * FROM acceleration WHERE id = :id")
     fun getItem(id: Int): Flow<AccelerationItem>

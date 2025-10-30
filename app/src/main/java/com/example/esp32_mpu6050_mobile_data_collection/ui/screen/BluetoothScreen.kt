@@ -1,7 +1,11 @@
 package com.example.esp32_mpu6050_mobile_data_collection.ui.screen
 
+import android.Manifest
 import android.annotation.SuppressLint
 import android.bluetooth.BluetoothDevice
+import android.bluetooth.BluetoothGattDescriptor
+import android.bluetooth.BluetoothProfile
+import android.content.Context
 import android.os.Build
 import android.util.Log
 import androidx.annotation.RequiresApi
@@ -11,17 +15,42 @@ import androidx.compose.animation.ExperimentalAnimationApi
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.LifecycleOwner
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.esp32_mpu6050_mobile_data_collection.BLE.BluetoothSampleBox
 import com.example.esp32_mpu6050_mobile_data_collection.BLE.FindDevicesScreen
-import java.util.jar.Manifest
+import com.example.esp32_mpu6050_mobile_data_collection.BLE.sendData
+import com.example.esp32_mpu6050_mobile_data_collection.BLE.toConnectionStateString
+import com.example.esp32_mpu6050_mobile_data_collection.data.DeviceConnectionState
+import com.example.esp32_mpu6050_mobile_data_collection.ui.view.BluetoothViewModel
+import com.example.platform.connectivity.bluetooth.ble.server.GATTServerSampleService.Companion.CHARACTERISTIC_UUID
+import com.example.platform.connectivity.bluetooth.ble.server.GATTServerSampleService.Companion.SERVICE_UUID
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import java.util.UUID
+import kotlin.random.Random
+import androidx.compose.runtime.collectAsState
 
 // =====================================================================================
 // |                                Main Composable
@@ -32,11 +61,13 @@ import java.util.jar.Manifest
 @RequiresApi(Build.VERSION_CODES.M)
 @Composable
 fun ConnectGATTSample() {
+    val viewModel: BluetoothViewModel = viewModel()
+
     var selectedDevice by remember {
         mutableStateOf<BluetoothDevice?>(null)
     }
     // Check that BT permissions and that BT is available and enabled
-    _root_ide_package_.com.example.platform.connectivity.bluetooth.ble.BluetoothSampleBox {
+    BluetoothSampleBox {
         AnimatedContent(targetState = selectedDevice, label = "Selected device") { device ->
             if (device == null) {
                 // Scans for BT devices and handles clicks (see FindDeviceSample)
@@ -45,7 +76,7 @@ fun ConnectGATTSample() {
                 }
             } else {
                 // Once a device is selected show the UI and try to connect device
-                ConnectDeviceScreen(device = device as BluetoothDevice) {
+                ConnectDeviceScreen(device = device as BluetoothDevice, viewModel) {
                     selectedDevice = null
                 }
             }
@@ -56,13 +87,12 @@ fun ConnectGATTSample() {
 @SuppressLint("InlinedApi")
 @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
 @Composable
-fun ConnectDeviceScreen(device: BluetoothDevice, onClose: () -> Unit) {
+fun ConnectDeviceScreen(device: BluetoothDevice, viewModel: BluetoothViewModel, onClose: () -> Unit) {
     val scope = rememberCoroutineScope()
 
     // Keeps track of the last connection state with the device
-    var state by remember(device) {
-        mutableStateOf<DeviceConnectionState?>(null)
-    }
+    val state = viewModel.uiState.collectAsState().value.connectionState
+
     // Once the device services are discovered find the GATTServerSample service
     val service by remember(state?.services) {
         mutableStateOf(state?.services?.find { it.uuid == SERVICE_UUID })
@@ -74,10 +104,8 @@ fun ConnectDeviceScreen(device: BluetoothDevice, onClose: () -> Unit) {
     var indications by remember { mutableStateOf(false) }
 
     // This effect will handle the connection and notify when the state changes
-    BLEConnectEffect(device = device, indications = indications) {
-        // update our state to recompose the UI
-        state = it
-    }
+    // TODO: Part of refactoring,
+    BLEConnectEffect(device = device, indications = indications, viewModel = viewModel)
 
     Column(
         modifier = Modifier
@@ -181,6 +209,50 @@ fun ConnectDeviceScreen(device: BluetoothDevice, onClose: () -> Unit) {
 
         Button(onClick = onClose) {
             Text(text = "Close")
+        }
+    }
+}
+
+// ================== Bluetooth Logic ==================
+@SuppressLint("InlinedApi")
+@RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
+@Composable
+private fun BLEConnectEffect(
+    device: BluetoothDevice,
+    lifecycleOwner: LifecycleOwner = LocalLifecycleOwner.current,
+    indications: Boolean,
+    viewModel: BluetoothViewModel,
+) {
+    val context: Context = LocalContext.current
+
+    // Disposable -> GATT connection is tied to this composables lifetime, on exit, calls dispose function which calls the gatt.close()
+    DisposableEffect(lifecycleOwner, device) {
+
+        val callback = viewModel.getBleCallback()
+
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_START) {
+                if (viewModel.getGattStatus() != null) {
+                    // If we previously had a GATT connection let's reestablish it
+                    viewModel.getGattStatus()?.connect()
+                } else {
+                    // Otherwise create a new GATT connection
+                    viewModel.updateGattConnection(gatt = device.connectGatt(context, false, callback))
+                }
+            } else if (event == Lifecycle.Event.ON_STOP) {
+                // Unless you have a reason to keep connected while in the bg you should disconnect
+                viewModel.getGattStatus()?.connect()
+            }
+        }
+
+        // Add the observer to the lifecycle
+        lifecycleOwner.lifecycle.addObserver(observer)
+
+        // When the effect leaves the Composition, remove the observer and close the connection
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+            viewModel.getGattStatus()?.close()
+            viewModel.resetState()
         }
     }
 }

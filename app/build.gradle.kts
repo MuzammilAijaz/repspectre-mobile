@@ -6,6 +6,12 @@ plugins {
     id("com.google.devtools.ksp") version "2.2.10-2.0.2"
 }
 
+// ------------------ Avoid conflicts of dependencies ------------------
+configurations.all {
+    exclude(group = "com.intellij", module = "annotations")
+}
+// ---------------------------------------------------------------------
+
 android {
     namespace = "com.example.esp32_mpu6050_mobile_data_collection"
     compileSdk = 36
@@ -56,6 +62,7 @@ dependencies {
     implementation(libs.androidx.room.compiler)
 
     // ------------------ My Dependencies ------------------
+    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.9.4")
     //Room
     val room_version = "2.8.3"
     implementation("androidx.room:room-runtime:${room_version}")

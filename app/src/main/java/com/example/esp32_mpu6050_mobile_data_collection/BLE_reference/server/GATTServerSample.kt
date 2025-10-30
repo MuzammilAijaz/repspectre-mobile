@@ -41,7 +41,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
-import com.example.platform.connectivity.bluetooth.ble.BluetoothSampleBox
+import com.example.esp32_mpu6050_mobile_data_collection.BLE.BluetoothSampleBox
 
 
 @RequiresApi(Build.VERSION_CODES.M)

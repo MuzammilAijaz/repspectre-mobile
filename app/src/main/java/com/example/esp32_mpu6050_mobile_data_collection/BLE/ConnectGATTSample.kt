@@ -75,8 +75,6 @@ private val SERVICE_UUID: UUID = UUID.fromString("efcdab90-7856-3412-f0de-bc9a78
 // Same as the service but for the characteristic
 private val CHARACTERISTIC_UUID: UUID = UUID.fromString("badcfe10-3254-7698-badc-fe1032547698")
 
-
-
 // =====================================================================================
 // |                                 Functions
 // =====================================================================================
@@ -85,7 +83,7 @@ private val CHARACTERISTIC_UUID: UUID = UUID.fromString("badcfe10-3254-7698-badc
  * Writes "hello world" to the server characteristic
  */
 @SuppressLint("MissingPermission")
-private fun sendData(
+fun sendData(
     gatt: BluetoothGatt,
     characteristic: BluetoothGattCharacteristic,
 ) {
@@ -113,203 +111,188 @@ internal fun Int.toConnectionStateString() = when (this) {
     else -> "N/A"
 }
 
-
-// ================== Device State ==================
-private data class DeviceConnectionState(
-    val gatt: BluetoothGatt?,
-    val connectionState: Int,
-    val mtu: Int,
-    val services: List<BluetoothGattService> = emptyList(),
-    val messageSent: Boolean = false,
-    val messageReceived: String = "",
-) {
-    companion object {
-        val None = DeviceConnectionState(null, -1, -1)
-    }
-}
-
-// ================== Bluetooth Logic ==================
-@SuppressLint("InlinedApi")
-@RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
-@Composable
-private fun BLEConnectEffect(
-    device: BluetoothDevice,
-    lifecycleOwner: LifecycleOwner = LocalLifecycleOwner.current,
-    indications: Boolean,
-    onStateChange: (DeviceConnectionState) -> Unit,
-) {
-    val context = LocalContext.current
-    val currentOnStateChange by rememberUpdatedState(onStateChange)
-
-    // Keep the current connection state
-    var state by remember {
-        mutableStateOf(DeviceConnectionState.None)
-    }
-
-    // Disposable -> GATT connection is tied to this composables lifetime, on exit, calls dispose function which calls the gatt.close()
-    DisposableEffect(lifecycleOwner, device) {
-
-        // =====================================================================================
-        // |                            GATT Connection Callbacks
-        // =====================================================================================
-        // | This callback will notify us when things change in the GATT connection so we can update
-        // | our state
-        // |
-        // | Functions are called automatically, leading to change in state, leading to recomposition
-        // =====================================================================================
-        val callback = object : BluetoothGattCallback() {
-
-            override fun onConnectionStateChange(
-                gatt: BluetoothGatt,
-                status: Int,
-                newState: Int,
-            ) {
-                super.onConnectionStateChange(gatt, status, newState)
-                state = state.copy(gatt = gatt, connectionState = newState)
-                currentOnStateChange(state)
-
-                if (status != BluetoothGatt.GATT_SUCCESS) {
-                    // Here you should handle the error returned in status based on the constants
-                    // https://developer.android.com/reference/android/bluetooth/BluetoothGatt#summary
-                    // For example for GATT_INSUFFICIENT_ENCRYPTION or
-                    // GATT_INSUFFICIENT_AUTHENTICATION you should create a bond.
-                    // https://developer.android.com/reference/android/bluetooth/BluetoothDevice#createBond()
-                    Log.e("BLEConnectEffect", "An error happened: $status")
-                }
-            }
-
-            override fun onMtuChanged(gatt: BluetoothGatt, mtu: Int, status: Int) {
-                super.onMtuChanged(gatt, mtu, status)
-                state = state.copy(gatt = gatt, mtu = mtu)
-                currentOnStateChange(state)
-            }
-
-            @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
-            override fun onServicesDiscovered(gatt: BluetoothGatt, status: Int) {
-                super.onServicesDiscovered(gatt, status)
-                state = state.copy(services = gatt.services)
-
-                // ------------------ Print all Services and Characteristics ------------------
-                Log.d("GATT Data", "FOUND, status: ${status}")
-                gatt.services.forEach { service ->
-                    Log.d("GATT Data", "Service: ${service.uuid}")
-                    service.characteristics.forEach { characteristic ->
-                        Log.d("GATT Data", "Service: ${characteristic.uuid}")
-                    }
-                }
-
-                currentOnStateChange(state)
-            }
-
-            override fun onCharacteristicWrite(
-                gatt: BluetoothGatt?,
-                characteristic: BluetoothGattCharacteristic?,
-                status: Int,
-            ) {
-                super.onCharacteristicWrite(gatt, characteristic, status)
-                state = state.copy(messageSent = status == BluetoothGatt.GATT_SUCCESS)
-                currentOnStateChange(state)
-            }
-
-            @Suppress("DEPRECATION", "OVERRIDE_DEPRECATION")
-            override fun onCharacteristicRead(
-                gatt: BluetoothGatt,
-                characteristic: BluetoothGattCharacteristic,
-                status: Int,
-            ) {
-                super.onCharacteristicRead(gatt, characteristic, status)
-                if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
-                    doOnRead(characteristic.value)
-                }
-            }
-
-            override fun onCharacteristicRead(
-                gatt: BluetoothGatt,
-                characteristic: BluetoothGattCharacteristic,
-                value: ByteArray,
-                status: Int,
-            ) {
-                super.onCharacteristicRead(gatt, characteristic, value, status)
-                doOnRead(value)
-            }
-
-            override fun onDescriptorWrite(
-                gatt: BluetoothGatt,
-                descriptor: BluetoothGattDescriptor,
-                status: Int
-            ) {
-                super.onDescriptorWrite(gatt, descriptor, status)
-                Log.d("BLE Data", "Descriptor write status: $status value=${descriptor.value?.contentToString()}")
-            }
-
-            // ------------------ Characteristic Change ------------------
-            /* Old API (android API <=12) : uses 2 arg method
-             * New API (android API >=13) : uses 3 arg method
-             */
-            override fun onCharacteristicChanged(
-                gatt: BluetoothGatt?,
-                characteristic: BluetoothGattCharacteristic?
-            ) {
-                super.onCharacteristicChanged(gatt, characteristic)
-                Log.d("BLE Data", "(2 arg)READ AUTOMATICALLY")
-                val value = characteristic?.value
-                doOnRead(value ?: byteArrayOf())
-            }
-
-            override fun onCharacteristicChanged(
-                gatt: BluetoothGatt,
-                characteristic: BluetoothGattCharacteristic,
-                value: ByteArray
-            ) {
-                super.onCharacteristicChanged(gatt, characteristic, value)
-                Log.d("BLE Data", "(3 arg)READ AUTOMATICALLY")
-                doOnRead(value)
-            }
-            // ---------------------------------------------
-
-            fun roundOffDecimal(number: Number): Double? {
-                val df = DecimalFormat("#.##")
-                df.roundingMode = RoundingMode.CEILING
-                return df.format(number).toDouble()
-            }
-
-            private fun doOnRead(value: ByteArray) {
-                val buffer = ByteBuffer.wrap(value).order(ByteOrder.LITTLE_ENDIAN)
-                val accelX = roundOffDecimal(buffer.float)
-                val accelY = roundOffDecimal(buffer.float)
-                val accelZ = roundOffDecimal(buffer.float)
-                Log.d("Sensor Data", "Accel: x=$accelX y=$accelY z=$accelZ")
-
-                val messageReceived = value.decodeToString()
-                Log.d("Sensor Data", "raw value: ${value}, Decoded: ${messageReceived}")
-                state = state.copy(messageReceived = "Accel: x=$accelX y=$accelY z=$accelZ")
-                currentOnStateChange(state)
-            }
-        }
-
-        val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_START) {
-                if (state.gatt != null) {
-                    // If we previously had a GATT connection let's reestablish it
-                    state.gatt?.connect()
-                } else {
-                    // Otherwise create a new GATT connection
-                    state = state.copy(gatt = device.connectGatt(context, false, callback))
-                }
-            } else if (event == Lifecycle.Event.ON_STOP) {
-                // Unless you have a reason to keep connected while in the bg you should disconnect
-                state.gatt?.connect()
-            }
-        }
-
-        // Add the observer to the lifecycle
-        lifecycleOwner.lifecycle.addObserver(observer)
-
-        // When the effect leaves the Composition, remove the observer and close the connection
-        onDispose {
-            lifecycleOwner.lifecycle.removeObserver(observer)
-            state.gatt?.close()
-            state = DeviceConnectionState.None
-        }
-    }
-}
+//// ================== Bluetooth Logic ==================
+//@SuppressLint("InlinedApi")
+//@RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
+//@Composable
+//private fun BLEConnectEffect(
+//    device: BluetoothDevice,
+//    lifecycleOwner: LifecycleOwner = LocalLifecycleOwner.current,
+//    indications: Boolean,
+//    onStateChange: (DeviceConnectionState) -> Unit,
+//) {
+//    val context = LocalContext.current
+//    val currentOnStateChange by rememberUpdatedState(onStateChange)
+//
+//    // Keep the current connection state
+//    var state by remember {
+//        mutableStateOf(DeviceConnectionState.None)
+//    }
+//
+//    // Disposable -> GATT connection is tied to this composables lifetime, on exit, calls dispose function which calls the gatt.close()
+//    DisposableEffect(lifecycleOwner, device) {
+//
+//        // =====================================================================================
+//        // |                            GATT Connection Callbacks
+//        // =====================================================================================
+//        // | This callback will notify us when things change in the GATT connection so we can update
+//        // | our state
+//        // |
+//        // | Functions are called automatically, leading to change in state, leading to recomposition
+//        // =====================================================================================
+//        val callback = object : BluetoothGattCallback() {
+//
+//            override fun onConnectionStateChange(
+//                gatt: BluetoothGatt,
+//                status: Int,
+//                newState: Int,
+//            ) {
+//                super.onConnectionStateChange(gatt, status, newState)
+//                state = state.copy(gatt = gatt, connectionState = newState)
+//                currentOnStateChange(state)
+//
+//                if (status != BluetoothGatt.GATT_SUCCESS) {
+//                    // Here you should handle the error returned in status based on the constants
+//                    // https://developer.android.com/reference/android/bluetooth/BluetoothGatt#summary
+//                    // For example for GATT_INSUFFICIENT_ENCRYPTION or
+//                    // GATT_INSUFFICIENT_AUTHENTICATION you should create a bond.
+//                    // https://developer.android.com/reference/android/bluetooth/BluetoothDevice#createBond()
+//                    Log.e("BLEConnectEffect", "An error happened: $status")
+//                }
+//            }
+//
+//            override fun onMtuChanged(gatt: BluetoothGatt, mtu: Int, status: Int) {
+//                super.onMtuChanged(gatt, mtu, status)
+//                state = state.copy(gatt = gatt, mtu = mtu)
+//                currentOnStateChange(state)
+//            }
+//
+//            @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
+//            override fun onServicesDiscovered(gatt: BluetoothGatt, status: Int) {
+//                super.onServicesDiscovered(gatt, status)
+//                state = state.copy(services = gatt.services)
+//
+//                // ------------------ Print all Services and Characteristics ------------------
+//                Log.d("GATT Data", "FOUND, status: ${status}")
+//                gatt.services.forEach { service ->
+//                    Log.d("GATT Data", "Service: ${service.uuid}")
+//                    service.characteristics.forEach { characteristic ->
+//                        Log.d("GATT Data", "Service: ${characteristic.uuid}")
+//                    }
+//                }
+//
+//                currentOnStateChange(state)
+//            }
+//
+//            override fun onCharacteristicWrite(
+//                gatt: BluetoothGatt?,
+//                characteristic: BluetoothGattCharacteristic?,
+//                status: Int,
+//            ) {
+//                super.onCharacteristicWrite(gatt, characteristic, status)
+//                state = state.copy(messageSent = status == BluetoothGatt.GATT_SUCCESS)
+//                currentOnStateChange(state)
+//            }
+//
+//            @Suppress("DEPRECATION", "OVERRIDE_DEPRECATION")
+//            override fun onCharacteristicRead(
+//                gatt: BluetoothGatt,
+//                characteristic: BluetoothGattCharacteristic,
+//                status: Int,
+//            ) {
+//                super.onCharacteristicRead(gatt, characteristic, status)
+//                if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
+//                    doOnRead(characteristic.value)
+//                }
+//            }
+//
+//            override fun onCharacteristicRead(
+//                gatt: BluetoothGatt,
+//                characteristic: BluetoothGattCharacteristic,
+//                value: ByteArray,
+//                status: Int,
+//            ) {
+//                super.onCharacteristicRead(gatt, characteristic, value, status)
+//                doOnRead(value)
+//            }
+//
+//            override fun onDescriptorWrite(
+//                gatt: BluetoothGatt,
+//                descriptor: BluetoothGattDescriptor,
+//                status: Int
+//            ) {
+//                super.onDescriptorWrite(gatt, descriptor, status)
+//                Log.d("BLE Data", "Descriptor write status: $status value=${descriptor.value?.contentToString()}")
+//            }
+//
+//            // ------------------ Characteristic Change ------------------
+//            /* Old API (android API <=12) : uses 2 arg method
+//             * New API (android API >=13) : uses 3 arg method
+//             */
+//            override fun onCharacteristicChanged(
+//                gatt: BluetoothGatt?,
+//                characteristic: BluetoothGattCharacteristic?
+//            ) {
+//                super.onCharacteristicChanged(gatt, characteristic)
+//                Log.d("BLE Data", "(2 arg)READ AUTOMATICALLY")
+//                val value = characteristic?.value
+//                doOnRead(value ?: byteArrayOf())
+//            }
+//
+//            override fun onCharacteristicChanged(
+//                gatt: BluetoothGatt,
+//                characteristic: BluetoothGattCharacteristic,
+//                value: ByteArray
+//            ) {
+//                super.onCharacteristicChanged(gatt, characteristic, value)
+//                Log.d("BLE Data", "(3 arg)READ AUTOMATICALLY")
+//                doOnRead(value)
+//            }
+//            // ---------------------------------------------
+//
+//            fun roundOffDecimal(number: Number): Double? {
+//                val df = DecimalFormat("#.##")
+//                df.roundingMode = RoundingMode.CEILING
+//                return df.format(number).toDouble()
+//            }
+//
+//            private fun doOnRead(value: ByteArray) {
+//                val buffer = ByteBuffer.wrap(value).order(ByteOrder.LITTLE_ENDIAN)
+//                val accelX = roundOffDecimal(buffer.float)
+//                val accelY = roundOffDecimal(buffer.float)
+//                val accelZ = roundOffDecimal(buffer.float)
+//                Log.d("Sensor Data", "Accel: x=$accelX y=$accelY z=$accelZ")
+//
+//                val messageReceived = value.decodeToString()
+//                Log.d("Sensor Data", "raw value: ${value}, Decoded: ${messageReceived}")
+//                state = state.copy(messageReceived = "Accel: x=$accelX y=$accelY z=$accelZ")
+//                currentOnStateChange(state)
+//            }
+//        }
+//
+//        val observer = LifecycleEventObserver { _, event ->
+//            if (event == Lifecycle.Event.ON_START) {
+//                if (state.gatt != null) {
+//                    // If we previously had a GATT connection let's reestablish it
+//                    state.gatt?.connect()
+//                } else {
+//                    // Otherwise create a new GATT connection
+//                    state = state.copy(gatt = device.connectGatt(context, false, callback))
+//                }
+//            } else if (event == Lifecycle.Event.ON_STOP) {
+//                // Unless you have a reason to keep connected while in the bg you should disconnect
+//                state.gatt?.connect()
+//            }
+//        }
+//
+//        // Add the observer to the lifecycle
+//        lifecycleOwner.lifecycle.addObserver(observer)
+//
+//        // When the effect leaves the Composition, remove the observer and close the connection
+//        onDispose {
+//            lifecycleOwner.lifecycle.removeObserver(observer)
+//            state.gatt?.close()
+//            state = DeviceConnectionState.None
+//        }
+//    }
+//}

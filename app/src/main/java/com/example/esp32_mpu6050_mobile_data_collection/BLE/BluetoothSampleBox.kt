@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.example.platform.connectivity.bluetooth.ble
+package com.example.esp32_mpu6050_mobile_data_collection.BLE
 
 import android.Manifest
 import android.app.Activity
