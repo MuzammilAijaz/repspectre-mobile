@@ -2,6 +2,8 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
+
+    id("com.google.devtools.ksp") version "2.2.10-2.0.2"
 }
 
 android {
@@ -51,6 +53,16 @@ dependencies {
     implementation(libs.androidx.material3)
 
     implementation("com.google.accompanist:accompanist-permissions:0.36.0")
+    implementation(libs.androidx.room.compiler)
+
+    // ------------------ My Dependencies ------------------
+    //Room
+    val room_version = "2.8.3"
+    implementation("androidx.room:room-runtime:${room_version}")
+    // KSP for parsing annotations
+    ksp("androidx.room:room-compiler:${room_version}")
+    implementation("androidx.room:room-ktx:${room_version}")
+    // -----------------------------------------------------
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

@@ -456,7 +456,7 @@ private fun BLEConnectEffect(
                 }
             } else if (event == Lifecycle.Event.ON_STOP) {
                 // Unless you have a reason to keep connected while in the bg you should disconnect
-                state.gatt?.disconnect()
+                state.gatt?.connect()
             }
         }
 
