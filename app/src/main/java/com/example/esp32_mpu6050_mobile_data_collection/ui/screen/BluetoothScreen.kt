@@ -15,6 +15,7 @@ import androidx.compose.animation.ExperimentalAnimationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
@@ -43,7 +44,6 @@ import com.example.esp32_mpu6050_mobile_data_collection.BLE.BluetoothSampleBox
 import com.example.esp32_mpu6050_mobile_data_collection.BLE.FindDevicesScreen
 import com.example.esp32_mpu6050_mobile_data_collection.BLE.sendData
 import com.example.esp32_mpu6050_mobile_data_collection.BLE.toConnectionStateString
-import com.example.esp32_mpu6050_mobile_data_collection.data.DeviceConnectionState
 import com.example.esp32_mpu6050_mobile_data_collection.ui.view.BluetoothViewModel
 import com.example.platform.connectivity.bluetooth.ble.server.GATTServerSampleService.Companion.CHARACTERISTIC_UUID
 import com.example.platform.connectivity.bluetooth.ble.server.GATTServerSampleService.Companion.SERVICE_UUID
@@ -52,6 +52,7 @@ import kotlinx.coroutines.launch
 import java.util.UUID
 import kotlin.random.Random
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.ui.Alignment
 import com.example.esp32_mpu6050_mobile_data_collection.ui.view.AppViewModel
 
@@ -226,9 +227,41 @@ fun ConnectDeviceScreen(device: BluetoothDevice, viewModel: BluetoothViewModel, 
             text="Store is ${if (isStoreDataOn) "enabled" else "disabled"}",
             modifier = Modifier.align(Alignment.CenterHorizontally)
         )
+
+        var isTimerModeOn: Boolean by remember { mutableStateOf(false) }
+        Row(
+
+        ) {
+            Button(
+                onClick = {
+                    isTimerModeOn = !isTimerModeOn
+                },
+                enabled = !isTimerModeOn,
+            ) {
+                Text(text = "Enable Timer Mode (10 seconds)")
+            }
+
+            Button(
+                onClick = {
+                    isTimerModeOn = !isTimerModeOn
+                },
+                enabled = isTimerModeOn,
+            ) {
+                Text(text = "Stop Timer Mode")
+            }
+        }
+
         if (isStoreDataOn) {
-            val startTime by remember { mutableStateOf(System.currentTimeMillis() )}
-            Text(text = "Time: ${(System.currentTimeMillis() - startTime) / 1000}")
+            val currentTime = System.currentTimeMillis()
+            val startTime by remember { mutableLongStateOf(currentTime) }
+            val duration = currentTime - startTime
+            Text(text = "Time: ${(duration) / 1000}")
+
+            if (isTimerModeOn) {
+                if ( duration > 10000 ) { // if greater than 10 seconds, close database connection
+                    isStoreDataOn = false
+                }
+            }
         }
         Button(
             onClick = {
