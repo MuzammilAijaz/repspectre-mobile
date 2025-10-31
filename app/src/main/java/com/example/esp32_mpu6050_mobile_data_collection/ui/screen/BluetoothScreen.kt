@@ -286,9 +286,13 @@ private fun BLEConnectEffect(
                     // Otherwise create a new GATT connection
                     viewModel.updateGattConnection(gatt = device.connectGatt(context, false, callback))
                 }
-            } else if (event == Lifecycle.Event.ON_STOP) {
+            }
+            if (event == Lifecycle.Event.ON_STOP) {
                 // Unless you have a reason to keep connected while in the bg you should disconnect
-                viewModel.getGattStatus()?.connect()
+                viewModel.getGattStatus()?.disconnect()
+            } else if (event == Lifecycle.Event.ON_DESTROY) {
+                viewModel.getGattStatus()?.close()
+                viewModel.resetState()
             }
         }
 
