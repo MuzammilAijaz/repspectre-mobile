@@ -11,6 +11,7 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 import com.example.esp32_mpu6050_mobile_data_collection.data.AccelerationItem
 import com.example.esp32_mpu6050_mobile_data_collection.data.AccelerationRepository
 import com.example.esp32_mpu6050_mobile_data_collection.data.SensorApplication
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -71,10 +72,13 @@ class AppViewModel(
     // |                                 Public Functions
     // =====================================================================================
     public fun insertValue(values: String) {
-        viewModelScope.launch{
+
+        // Coroutine scope launches and returns immediately, as its non-blocking
+        viewModelScope.launch(Dispatchers.IO) {
             updateDatabaseValues(parseString(values))
         }
     }
+
     public fun returnCurrentValues(): FloatList {
         return floatListOf(_uiState.value.x, _uiState.value.y, _uiState.value.z)
     }
