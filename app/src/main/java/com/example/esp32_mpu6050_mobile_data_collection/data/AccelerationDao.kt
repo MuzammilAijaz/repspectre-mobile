@@ -30,10 +30,15 @@ interface AccelerationDao {
     @Query("DELETE FROM session")
     suspend fun deleteAllSessions()
 
+    /** Resets AUTOINCREMENT counters inside sqlite for both tables */
+    @Query("DELETE FROM sqlite_sequence WHERE name IN ('acceleration', 'session')")
+    suspend fun resetAutoIncrement()
+
     /** Convenience method to clear both tables */
     suspend fun cleanDatabase() {
         deleteAllAcceleration()
         deleteAllSessions()
+        resetAutoIncrement()
     }
 
     // =====================================================================================
