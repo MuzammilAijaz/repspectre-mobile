@@ -20,6 +20,23 @@ import kotlinx.coroutines.flow.Flow
 interface AccelerationDao {
 
     // =====================================================================================
+    // |                             Database Cleanup
+    // =====================================================================================
+
+    /** Deletes all rows from both acceleration and session tables */
+    @Query("DELETE FROM acceleration")
+    suspend fun deleteAllAcceleration()
+
+    @Query("DELETE FROM session")
+    suspend fun deleteAllSessions()
+
+    /** Convenience method to clear both tables */
+    suspend fun cleanDatabase() {
+        deleteAllAcceleration()
+        deleteAllSessions()
+    }
+
+    // =====================================================================================
     // |                                 Acceleration Session Entity
     // =====================================================================================
 

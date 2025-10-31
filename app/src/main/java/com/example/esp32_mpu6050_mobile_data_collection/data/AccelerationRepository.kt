@@ -30,4 +30,6 @@ class AccelerationRepository(
         accelerationDao.insertItem(item = createEntityFromSession(sessionId))
     }
     fun createNewSession() { newSession = true }
+
+    suspend fun cleanDatabase() = accelerationDao.cleanDatabase()
 }

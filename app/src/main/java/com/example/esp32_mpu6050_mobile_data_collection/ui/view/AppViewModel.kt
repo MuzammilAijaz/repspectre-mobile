@@ -74,6 +74,7 @@ class AppViewModel(
     // |                                 Public Functions
     // =====================================================================================
     public fun createNewSession() {accelerationRepository.createNewSession()}
+    public fun cleanDatabase() {viewModelScope.launch(Dispatchers.IO){accelerationRepository.cleanDatabase()}}
 
     public fun insertValue(values: String) {
 

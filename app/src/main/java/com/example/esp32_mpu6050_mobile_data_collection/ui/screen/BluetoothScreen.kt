@@ -237,6 +237,7 @@ fun ConnectDeviceScreen(device: BluetoothDevice, viewModel: BluetoothViewModel, 
                     isNewSession = true
                 }
             },
+            enabled = !isStoreDataOn,
             modifier = Modifier.background(if (!isStoreDataOn) Color.Red else Color.Green ).align(Alignment.CenterHorizontally)
         ) {
             Text(text = "Start")
@@ -249,6 +250,7 @@ fun ConnectDeviceScreen(device: BluetoothDevice, viewModel: BluetoothViewModel, 
                     isNewSession = false
                 }
             },
+            enabled = isStoreDataOn,
             modifier = Modifier.background(if (isStoreDataOn) Color.Red else Color.Green ).align(Alignment.CenterHorizontally)
         ) {
             Text(text = "Stop")
@@ -256,6 +258,14 @@ fun ConnectDeviceScreen(device: BluetoothDevice, viewModel: BluetoothViewModel, 
 
         Button(onClick = onClose) {
             Text(text = "Close")
+        }
+
+        Button(onClick = {
+            appViewModel.cleanDatabase()
+            },
+            enabled = !isStoreDataOn
+        ) {
+            Text(text = "CLEAN DATABASE!!!")
         }
     }
 }
