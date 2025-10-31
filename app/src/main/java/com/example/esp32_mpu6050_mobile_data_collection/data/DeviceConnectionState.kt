@@ -4,6 +4,7 @@ import android.bluetooth.BluetoothGatt
 import android.bluetooth.BluetoothGattService
 
 // ================== Device State ==================
+// Holds connection stats like gatt object, mtu number, Connected/Disconnected etc.
 data class DeviceConnectionState(
     val gatt: BluetoothGatt?,
     val connectionState: Int,

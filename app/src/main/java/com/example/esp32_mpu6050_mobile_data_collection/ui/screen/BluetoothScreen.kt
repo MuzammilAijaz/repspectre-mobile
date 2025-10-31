@@ -90,6 +90,7 @@ fun ConnectGATTSample() {
 @Composable
 fun ConnectDeviceScreen(device: BluetoothDevice, viewModel: BluetoothViewModel, onClose: () -> Unit) {
     val appViewModel: AppViewModel = viewModel(factory = AppViewModel.Factory)
+    var isStoreDataOn: Boolean by remember { mutableStateOf(false) }
 
     val scope = rememberCoroutineScope()
 
@@ -131,7 +132,11 @@ fun ConnectDeviceScreen(device: BluetoothDevice, viewModel: BluetoothViewModel, 
         Log.d("Sensor Data", "Service Value: ${service}")
 
         Text(text = "Message received: ${state?.messageReceived}")
-        appViewModel.insertValue(state?.messageReceived ?: "Accel: x=0.0 y=0.0 z=0.0")
+
+        if (isStoreDataOn) {
+            Log.d("Database", "Collection Started")
+            appViewModel.insertValue(state?.messageReceived ?: "Accel: x=0.0 y=0.0 z=0.0")
+        }
 
         Button(
             onClick = {
@@ -210,6 +215,14 @@ fun ConnectDeviceScreen(device: BluetoothDevice, viewModel: BluetoothViewModel, 
             )
         ) {
             Text(if (indications) "INDICATIONS ON" else "INDICATIONS OFF")
+        }
+
+        Button(
+            onClick = {
+                isStoreDataOn = !isStoreDataOn
+            }
+        ) {
+            Text(text = if (isStoreDataOn) "Stop Storing Data" else "Start Storing Data" )
         }
 
         Button(onClick = onClose) {
