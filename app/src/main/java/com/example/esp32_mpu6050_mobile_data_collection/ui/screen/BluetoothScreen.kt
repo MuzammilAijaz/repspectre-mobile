@@ -88,6 +88,15 @@ fun ConnectGATTSample() {
     }
 }
 
+
+// =====================================================================================
+// |                                     UI
+// =====================================================================================
+// | NOTES AND CONSIDERATIONS:
+// |    -> right now implemntation requires duplicate of code in :
+// |        -> stopping the saving of data to the database
+// |
+// =====================================================================================
 @SuppressLint("InlinedApi")
 @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
 @Composable
@@ -260,6 +269,8 @@ fun ConnectDeviceScreen(device: BluetoothDevice, viewModel: BluetoothViewModel, 
             if (isTimerModeOn) {
                 if ( duration > 10000 ) { // if greater than 10 seconds, close database connection
                     isStoreDataOn = false
+                    isNewSession = false
+                    appViewModel.stopOldSession()
                 }
             }
         }
@@ -268,6 +279,7 @@ fun ConnectDeviceScreen(device: BluetoothDevice, viewModel: BluetoothViewModel, 
                 if(isStoreDataOn == false) {
                     isStoreDataOn = true
                     isNewSession = true
+                    // TODO() : serapte the UI and ViewModel Logic so i can do appViewModel.createNewSession() instead
                 }
             },
             enabled = !isStoreDataOn,
@@ -281,6 +293,7 @@ fun ConnectDeviceScreen(device: BluetoothDevice, viewModel: BluetoothViewModel, 
                 if(isStoreDataOn == true) {
                     isStoreDataOn = false
                     isNewSession = false
+                    appViewModel.stopOldSession()
                 }
             },
             enabled = isStoreDataOn,

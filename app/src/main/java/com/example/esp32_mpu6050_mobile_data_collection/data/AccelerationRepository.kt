@@ -29,7 +29,16 @@ class AccelerationRepository(
 
         accelerationDao.insertItem(item = createEntityFromSession(sessionId))
     }
-    fun createNewSession() { newSession = true }
+
+    /** Allows the creation of new session*/
+    fun createNewSession() {
+        newSession = true
+    }
+
+    /** Updates the endTime of the latest session entity */
+    suspend fun stopOldSession() {
+        accelerationDao.updateSessionEndTime(accelerationDao.getLatestSessionId(), System.currentTimeMillis())
+    }
 
     suspend fun cleanDatabase() = accelerationDao.cleanDatabase()
 }

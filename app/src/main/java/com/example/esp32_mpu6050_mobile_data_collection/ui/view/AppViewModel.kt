@@ -73,6 +73,7 @@ class AppViewModel(
     // =====================================================================================
     // |                                 Public Functions
     // =====================================================================================
+    public fun stopOldSession() {viewModelScope.launch(Dispatchers.IO) {accelerationRepository.stopOldSession()}}
     public fun createNewSession() {accelerationRepository.createNewSession()}
     public fun cleanDatabase() {viewModelScope.launch(Dispatchers.IO){accelerationRepository.cleanDatabase()}}
 
@@ -91,4 +92,5 @@ class AppViewModel(
     public fun returnCurrentValues(): FloatList {
         return floatListOf(_uiState.value.x, _uiState.value.y, _uiState.value.z)
     }
+
 }

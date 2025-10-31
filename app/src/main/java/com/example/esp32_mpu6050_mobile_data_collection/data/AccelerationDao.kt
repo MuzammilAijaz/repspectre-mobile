@@ -49,6 +49,12 @@ interface AccelerationDao {
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insertSessionItem(item: AccelerationSessionEntity): Long // Note: using long here to align with how sqlite stores data
 
+    @Query("UPDATE session SET endTime = :endTime WHERE sessionId = :sessionId")
+    suspend fun updateSessionEndTime(sessionId: Long, endTime: Long)
+
+    @Query("SELECT sessionId FROM session ORDER BY sessionId DESC LIMIT 1")
+    suspend fun getLatestSessionId(): Long
+
     // =====================================================================================
     // |                                Acceleration Entity
     // =====================================================================================
