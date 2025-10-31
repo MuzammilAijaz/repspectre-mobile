@@ -256,7 +256,13 @@ fun ConnectDeviceScreen(device: BluetoothDevice, viewModel: BluetoothViewModel, 
             Text(text = "Stop")
         }
 
-        Button(onClick = onClose) {
+        Button(onClick = {
+            // Close GATT connection
+            viewModel.disconnectAndClose()
+            // Open device selection screen
+            onClose()
+            }
+        ) {
             Text(text = "Close")
         }
 

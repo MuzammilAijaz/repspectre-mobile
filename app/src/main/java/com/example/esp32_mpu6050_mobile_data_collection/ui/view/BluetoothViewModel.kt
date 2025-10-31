@@ -37,9 +37,24 @@ class BluetoothViewModel() : ViewModel() {
             currentState.copy(connectionState = currentState.connectionState.copy(gatt = gatt))
         }
     }
+
     public fun resetState() {
         _uiState.value = BluetoothUiState()
     }
+
+    @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
+    public fun disconnectAndClose() {
+        _uiState.apply {
+            try {
+                _uiState.value.connectionState.gatt?.disconnect()
+                _uiState.value.connectionState.gatt?.close()
+            } catch (e: Exception) {
+                Log.e("BLE", "Error while closing GATT: ${e.message}")
+            }
+        }
+        resetState()
+    }
+
     // =====================================================================================
     // |                            GATT Connection Callbacks
     // =====================================================================================
