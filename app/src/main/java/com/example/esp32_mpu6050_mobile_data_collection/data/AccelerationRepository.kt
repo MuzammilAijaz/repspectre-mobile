@@ -7,13 +7,27 @@
 
 package com.example.esp32_mpu6050_mobile_data_collection.data
 
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import kotlinx.coroutines.flow.Flow
 
 class AccelerationRepository(
     private val accelerationDao: AccelerationDao
 ) {
-    fun getAllItemsStream(): Flow<List<AccelerationItem>> = accelerationDao.getAllItems()
-    fun getItem(id: Int): Flow<AccelerationItem> = accelerationDao.getItem(id)
+    fun getAllItemsStream(): Flow<List<AccelerationEntity>> = accelerationDao.getAllItems()
+    fun getItem(id: Int): Flow<AccelerationEntity> = accelerationDao.getItem(id)
 
-    suspend fun insertItem(item: AccelerationItem) = accelerationDao.insertItem(item)
+    private var newSession: Boolean = false
+    private var sessionId: Long = 0
+
+    suspend fun insertItem(createEntityFromSession: (sessionId: Long) -> AccelerationEntity) {
+        // Session Id remains the same
+        if (newSession) {
+            sessionId = accelerationDao.insertSessionItem(AccelerationSessionEntity(startTime = System.currentTimeMillis()))
+            newSession = false
+        }
+
+        accelerationDao.insertItem(item = createEntityFromSession(sessionId))
+    }
+    fun createNewSession() { newSession = true }
 }

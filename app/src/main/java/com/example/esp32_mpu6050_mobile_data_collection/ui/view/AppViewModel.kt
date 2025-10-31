@@ -8,7 +8,7 @@ import androidx.lifecycle.ViewModelProvider.AndroidViewModelFactory.Companion.AP
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
-import com.example.esp32_mpu6050_mobile_data_collection.data.AccelerationItem
+import com.example.esp32_mpu6050_mobile_data_collection.data.AccelerationEntity
 import com.example.esp32_mpu6050_mobile_data_collection.data.AccelerationRepository
 import com.example.esp32_mpu6050_mobile_data_collection.data.SensorApplication
 import kotlinx.coroutines.Dispatchers
@@ -46,11 +46,13 @@ class AppViewModel(
     // |                                 Private Functions
     // =====================================================================================
 
-    private suspend fun updateDatabaseValues(item: AccelerationItem) {
-        accelerationRepository.insertItem(item)
+    private suspend fun updateDatabaseValues(createEntityFromSession: (sessionId: Long) -> AccelerationEntity) {
+        accelerationRepository.insertItem(createEntityFromSession = createEntityFromSession)
     }
 
-    private fun parseString(string: String): AccelerationItem{
+
+    /** Returns List in form of : x, y, z */
+    private fun parseString(string: String): List<Float>{
         val input = string
 
         val regex = Regex("""x=([-+]?\d*\.?\d+)\s+y=([-+]?\d*\.?\d+)\s+z=([-+]?\d*\.?\d+)""")
@@ -61,21 +63,27 @@ class AppViewModel(
             val xFloat = x.toFloat()
             val yFloat = y.toFloat()
             val zFloat = z.toFloat()
-            return AccelerationItem(x = xFloat, y = yFloat, z = zFloat)
+            return listOf(xFloat,yFloat,zFloat)
         }
         else {
-            return AccelerationItem(x = 0f, y = 0f, z = 0f)
+            return listOf(0f, 0f, 0f)
         }
     }
 
     // =====================================================================================
     // |                                 Public Functions
     // =====================================================================================
+    public fun createNewSession() {accelerationRepository.createNewSession()}
+
     public fun insertValue(values: String) {
 
         // Coroutine scope launches and returns immediately, as its non-blocking
         viewModelScope.launch(Dispatchers.IO) {
-            updateDatabaseValues(parseString(values))
+
+            updateDatabaseValues() { sessionId ->
+                val accelerationValues: List<Float> = parseString(values)
+                AccelerationEntity(sessionId = sessionId, x = accelerationValues[0], y = accelerationValues[1], z = accelerationValues[2])
+            }
         }
     }
 

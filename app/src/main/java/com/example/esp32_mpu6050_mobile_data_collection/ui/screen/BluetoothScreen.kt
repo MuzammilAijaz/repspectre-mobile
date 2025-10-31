@@ -12,6 +12,7 @@ import androidx.annotation.RequiresApi
 import androidx.annotation.RequiresPermission
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.ExperimentalAnimationApi
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -51,6 +52,7 @@ import kotlinx.coroutines.launch
 import java.util.UUID
 import kotlin.random.Random
 import androidx.compose.runtime.collectAsState
+import androidx.compose.ui.Alignment
 import com.example.esp32_mpu6050_mobile_data_collection.ui.view.AppViewModel
 
 // =====================================================================================
@@ -91,6 +93,7 @@ fun ConnectGATTSample() {
 fun ConnectDeviceScreen(device: BluetoothDevice, viewModel: BluetoothViewModel, onClose: () -> Unit) {
     val appViewModel: AppViewModel = viewModel(factory = AppViewModel.Factory)
     var isStoreDataOn: Boolean by remember { mutableStateOf(false) }
+    var isNewSession: Boolean by remember { mutableStateOf(false) }
 
     val scope = rememberCoroutineScope()
 
@@ -134,6 +137,8 @@ fun ConnectDeviceScreen(device: BluetoothDevice, viewModel: BluetoothViewModel, 
         Text(text = "Message received: ${state?.messageReceived}")
 
         if (isStoreDataOn) {
+            if(isNewSession) {appViewModel.createNewSession() ; isNewSession = false}
+
             Log.d("Database", "Collection Started")
             appViewModel.insertValue(state?.messageReceived ?: "Accel: x=0.0 y=0.0 z=0.0")
         }
@@ -217,12 +222,36 @@ fun ConnectDeviceScreen(device: BluetoothDevice, viewModel: BluetoothViewModel, 
             Text(if (indications) "INDICATIONS ON" else "INDICATIONS OFF")
         }
 
+        Text(
+            text="Store is ${if (isStoreDataOn) "enabled" else "disabled"}",
+            modifier = Modifier.align(Alignment.CenterHorizontally)
+        )
+        if (isStoreDataOn) {
+            val startTime by remember { mutableStateOf(System.currentTimeMillis() )}
+            Text(text = "Time: ${(System.currentTimeMillis() - startTime) / 1000}")
+        }
         Button(
             onClick = {
-                isStoreDataOn = !isStoreDataOn
-            }
+                if(isStoreDataOn == false) {
+                    isStoreDataOn = true
+                    isNewSession = true
+                }
+            },
+            modifier = Modifier.background(if (!isStoreDataOn) Color.Red else Color.Green ).align(Alignment.CenterHorizontally)
         ) {
-            Text(text = if (isStoreDataOn) "Stop Storing Data" else "Start Storing Data" )
+            Text(text = "Start")
+        }
+
+        Button(
+            onClick = {
+                if(isStoreDataOn == true) {
+                    isStoreDataOn = false
+                    isNewSession = false
+                }
+            },
+            modifier = Modifier.background(if (isStoreDataOn) Color.Red else Color.Green ).align(Alignment.CenterHorizontally)
+        ) {
+            Text(text = "Stop")
         }
 
         Button(onClick = onClose) {
