@@ -17,14 +17,47 @@ android {
     compileSdk = 36
 
     defaultConfig {
+
+        // ------------------ FOR CPP ------------------
+        externalNativeBuild.cmake {
+            val nativeLibName = project.findProperty("app.native_library_name") ?: "raymob"
+            cppFlags += listOf("-std=c++17", "-frtti", "-fexceptions")
+            val glVersion = project.findProperty("gl.version") ?: "ES20"
+            arguments(
+                "-DPLATFORM=Android",
+                "-DBUILD_EXAMPLES=OFF",
+                "-DAPP_LIB_NAME=raymob",
+                "-DGL_VERSION=$glVersion",
+            )
+        }
+        // ---------------------------------------------
+
         applicationId = "com.example.esp32_mpu6050_mobile_data_collection"
         minSdk = 24
         targetSdk = 36
         versionCode = 1
         versionName = "1.0"
 
+        // ------------------ Build Time Constants ------------------
+        // Generates a build configuration based on the requested features in gradle.properties
+        buildConfigField("boolean", "FEATURE_DISPLAY_KEEP_ON",
+            (project.properties["display.keep_on"] ?: "false") as String
+        )
+        buildConfigField("boolean", "FEATURE_DISPLAY_IMMERSIVE",
+            (project.properties["display.immersive"] ?: "false") as String
+        )
+        buildConfigField("boolean", "FEATURE_DISPLAY_INTO_CUTOUT",
+            (project.properties["display.into_cutout"] ?: "false") as String
+        )
+        // ----------------------------------------------------------
+
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
+
+    // ------------------ FOR CPP ------------------
+    externalNativeBuild.cmake.path = file("src/main/cpp/CMakeLists.txt")
+    externalNativeBuild.cmake.version = "3.30.3"
+    // ---------------------------------------------
 
     buildTypes {
         release {
@@ -43,6 +76,7 @@ android {
         jvmTarget = "11"
     }
     buildFeatures {
+        buildConfig = true // Enables Custom Build used to pass in build time constants
         compose = true
     }
 }

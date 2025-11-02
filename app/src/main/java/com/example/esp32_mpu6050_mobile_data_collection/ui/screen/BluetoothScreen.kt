@@ -6,6 +6,7 @@ import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothGattDescriptor
 import android.bluetooth.BluetoothProfile
 import android.content.Context
+import android.content.Intent
 import android.os.Build
 import android.util.Log
 import androidx.annotation.RequiresApi
@@ -54,6 +55,7 @@ import kotlin.random.Random
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.ui.Alignment
+import com.example.esp32_mpu6050_mobile_data_collection.raylib.RaylibActivity
 import com.example.esp32_mpu6050_mobile_data_collection.ui.view.AppViewModel
 
 // =====================================================================================
@@ -318,6 +320,14 @@ fun ConnectDeviceScreen(device: BluetoothDevice, viewModel: BluetoothViewModel, 
             enabled = !isStoreDataOn
         ) {
             Text(text = "CLEAN DATABASE!!!")
+        }
+
+        val context = LocalContext.current
+        Button(onClick = {
+            // Launch Raylib activity
+            context.startActivity(Intent(context, RaylibActivity::class.java))
+        }) {
+            Text(text = "Launch 3D visualizer")
         }
     }
 }
