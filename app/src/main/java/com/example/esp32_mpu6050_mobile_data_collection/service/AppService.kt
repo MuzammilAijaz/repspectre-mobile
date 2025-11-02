@@ -18,7 +18,6 @@ import android.util.Log
 import androidx.annotation.RequiresPermission
 import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
-import androidx.core.content.ContextCompat.getSystemService
 import androidx.core.content.PermissionChecker
 import com.example.esp32_mpu6050_mobile_data_collection.BLE.AppBluetoothGattCallback
 import com.example.esp32_mpu6050_mobile_data_collection.R
@@ -26,6 +25,7 @@ import com.example.esp32_mpu6050_mobile_data_collection.data.DeviceConnectionSta
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.MutableStateFlow
 
 // =====================================================================================
 // |                                   Service
@@ -37,7 +37,7 @@ import kotlinx.coroutines.SupervisorJob
 // =====================================================================================
 
 class AppService(
-    device: BluetoothDevice,
+    private val device: BluetoothDevice,
 ): Service() {
 
     // --------------------------------------------------------------
@@ -68,6 +68,7 @@ class AppService(
         )
 
         val state = BleState()
+        val messages = MutableStateFlow<String?> (null)
 
         fun updateConnection(
             gatt: BluetoothGatt? = state.connectionState.gatt,
@@ -78,14 +79,17 @@ class AppService(
             messageReceived: String = state.connectionState.messageReceived
         ) {
             state.connectionState = state.connectionState.copy(gatt, connectionState, mtu, services, messageSent, messageReceived)
-        }
 
+            // Emit message updates to all observers
+            messages.value = messageReceived
+        }
     }
 
     private val appBluetoothGattCallback = AppBluetoothGattCallback()
 
     private val characteristic: BluetoothGattCharacteristic? = null
     private val service: BluetoothGattService? = null
+    val messages = MutableStateFlow(state.connectionState.messageReceived)
 
     // --------------------------------------------------------------
     //                           Overrides
@@ -161,10 +165,10 @@ class AppService(
         isServiceEnabled = true
         startForeground() // upgrade the service to foreground service
 
-        if (connectionState.gatt != null) {
-            connectionState.gatt?.connect()
+        if (state.connectionState.gatt != null) {
+            state.connectionState.gatt?.connect()
         } else {
-            connectionState.copy(gatt = device?.connectGatt(this, false, appBluetoothGattCallback))
+            state.connectionState.copy(gatt = device.connectGatt(this, false, appBluetoothGattCallback))
         }
 
         return START_STICKY // Restarts service if service gets killed
@@ -177,9 +181,9 @@ class AppService(
     @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
     override fun onDestroy() {
         Log.d("AppService", "App Service DESTROYED!!")
-        connectionState.gatt?.disconnect()
-        connectionState.gatt?.close()
-        connectionState = DeviceConnectionState.None
+        state.connectionState.gatt?.disconnect()
+        state.connectionState.gatt?.close()
+        state.connectionState = DeviceConnectionState.None
     }
 
     // --------------------------------------------------------------
