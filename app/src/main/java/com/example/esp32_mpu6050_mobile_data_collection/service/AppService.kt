@@ -61,14 +61,14 @@ class AppService(
     )
 
     // ------------------ Bluetooth ------------------
-    companion object bleState {
+    companion object bleStateProvider {
         data class BleState(
             val device: BluetoothDevice? = null,
             var connectionState: DeviceConnectionState = DeviceConnectionState.None
         )
 
         val state = BleState()
-        val messages = MutableStateFlow<String?> (null)
+        var messages = MutableStateFlow<String?> (null)
 
         fun updateConnection(
             gatt: BluetoothGatt? = state.connectionState.gatt,
@@ -89,7 +89,6 @@ class AppService(
 
     private val characteristic: BluetoothGattCharacteristic? = null
     private val service: BluetoothGattService? = null
-    val messages = MutableStateFlow(state.connectionState.messageReceived)
 
     // --------------------------------------------------------------
     //                           Overrides

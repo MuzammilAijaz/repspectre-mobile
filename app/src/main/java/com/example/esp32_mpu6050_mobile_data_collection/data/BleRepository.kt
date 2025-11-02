@@ -1,26 +1,35 @@
 package com.example.esp32_mpu6050_mobile_data_collection.data
 
-import android.bluetooth.BluetoothDevice
-import kotlinx.coroutines.flow.MutableStateFlow
+import android.util.Log
+import com.example.esp32_mpu6050_mobile_data_collection.service.AppService
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 interface BleRepository {
-    val _device: BluetoothDevice?
-    val _connectionState: DeviceConnectionState?
+    var message: String?
 }
 
 class AppBleRepository(
-    override val _device: BluetoothDevice? = null,
-    override val _connectionState: DeviceConnectionState? = DeviceConnectionState.None,
 ) : BleRepository {
-    public val connectionState = MutableStateFlow(_connectionState)
-    public val device = MutableStateFlow(_device)
 
-    public fun getDataFromService() {
+    override var message: String? = null
 
+    val messages = AppService.messages
+
+    init {
+        CoroutineScope(Dispatchers.IO).launch {
+            messages.collect { msg ->
+                if (msg != null) {
+                    message = msg
+                    Log.d("BLE Data", "Got Data")
+                }
+            }
+        }
     }
+
 }
 
-object appBleRespository {
-
+object appBleRespositoryProvider {
     val respository = AppBleRepository()
 }

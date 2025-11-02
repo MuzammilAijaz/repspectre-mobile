@@ -31,7 +31,7 @@ class AppBluetoothGattCallback() : BluetoothGattCallback() {
         newState: Int,
     ) {
         super.onConnectionStateChange(gatt, status, newState)
-        AppService.bleState.updateConnection(gatt = gatt, connectionState = newState)
+        AppService.bleStateProvider.updateConnection(gatt = gatt, connectionState = newState)
 
         if (status != BluetoothGatt.GATT_SUCCESS) {
             // Here you should handle the error returned in status based on the constants
@@ -45,13 +45,13 @@ class AppBluetoothGattCallback() : BluetoothGattCallback() {
 
     override fun onMtuChanged(gatt: BluetoothGatt, mtu: Int, status: Int) {
         super.onMtuChanged(gatt, mtu, status)
-        AppService.bleState.updateConnection(gatt = gatt, mtu = mtu)
+        AppService.bleStateProvider.updateConnection(gatt = gatt, mtu = mtu)
     }
 
     @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
     override fun onServicesDiscovered(gatt: BluetoothGatt, status: Int) {
         super.onServicesDiscovered(gatt, status)
-        AppService.bleState.updateConnection(services = gatt.services)
+        AppService.bleStateProvider.updateConnection(services = gatt.services)
 
         // ------------------ Print all Services and Characteristics ------------------
         Log.d("GATT Data", "FOUND, status: ${status}")
@@ -69,7 +69,7 @@ class AppBluetoothGattCallback() : BluetoothGattCallback() {
         status: Int,
     ) {
         super.onCharacteristicWrite(gatt, characteristic, status)
-        AppService.bleState.updateConnection(messageSent = status == BluetoothGatt.GATT_SUCCESS)
+        AppService.bleStateProvider.updateConnection(messageSent = status == BluetoothGatt.GATT_SUCCESS)
     }
 
     @Suppress("DEPRECATION", "OVERRIDE_DEPRECATION")
@@ -146,6 +146,6 @@ class AppBluetoothGattCallback() : BluetoothGattCallback() {
         val messageReceived = value.decodeToString()
         Log.d("Sensor Data", "raw value: ${value}, Decoded: ${messageReceived}")
 
-        AppService.bleState.updateConnection(messageReceived = "Accel: x=$accelX y=$accelY z=$accelZ")
+        AppService.bleStateProvider.updateConnection(messageReceived = "Accel: x=$accelX y=$accelY z=$accelZ")
     }
 }
