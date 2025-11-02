@@ -7,8 +7,6 @@
 
 package com.example.esp32_mpu6050_mobile_data_collection.data
 
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import kotlinx.coroutines.flow.Flow
 
 class AccelerationRepository(

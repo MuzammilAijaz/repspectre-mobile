@@ -25,6 +25,7 @@
 // ------------------------------------------------------------------------------------
 // Private
 // ------------------------------------------------------------------------------------
+
 static volatile float pitch = 0.0f;
 static volatile float roll = 0.0f;
 static volatile float yaw = 0.0f;
@@ -74,6 +75,8 @@ int main(void)
 //    Texture2D texture = LoadTexture("modelResources/models/obj/plane_diffuse.png");  // Load model texture
 //    model.materials[0].maps[MATERIAL_MAP_DIFFUSE].texture = texture;            // Set map diffuse texture
 
+    char textMessage [128];
+
     SetTargetFPS(60);               // Set our game to run at 60 frames-per-second
     //--------------------------------------------------------------------------------------
 
@@ -116,6 +119,8 @@ int main(void)
 //        DrawText("Yaw controlled with: KEY_A / KEY_S", 40, 420, 10, DARKGRAY);
 //
 //        DrawText("(c) WWI Plane Model created by GiaHanLam", screenWidth - 240, screenHeight - 20, 10, DARKGRAY);
+        sprintf(textMessage, "Value: %f, %f, %f", pitch, roll, yaw);
+        DrawText(textMessage, 20, 20, 30, DARKBLUE);
 
         if (GuiButton((Rectangle){4.0f, 4.0f, 100.0f, 40.0f}, "Back")) {
             EndDrawing();
