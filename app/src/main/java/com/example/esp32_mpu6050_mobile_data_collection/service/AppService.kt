@@ -15,6 +15,7 @@ import android.os.Binder
 import android.os.Build
 import android.os.IBinder
 import android.util.Log
+import androidx.annotation.RequiresApi
 import androidx.annotation.RequiresPermission
 import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
@@ -22,30 +23,33 @@ import androidx.core.content.PermissionChecker
 import com.example.esp32_mpu6050_mobile_data_collection.BLE.AppBluetoothGattCallback
 import com.example.esp32_mpu6050_mobile_data_collection.R
 import com.example.esp32_mpu6050_mobile_data_collection.data.DeviceConnectionState
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
+import java.util.UUID
+
+// ------------------ Constants ------------------
+// CONTAINS HARDCODED UUIDS BASED ON THE DEVICE
+
+// Random UUID for our service known between the client and server to allow communication
+val SERVICE_UUID: UUID = UUID.fromString("efcdab90-7856-3412-f0de-bc9a78563412")
+
+// Same as the service but for the characteristic
+val CHARACTERISTIC_UUID: UUID = UUID.fromString("badcfe10-3254-7698-badc-fe1032547698")
+
+val DESCRIPTOR_UUID: UUID = UUID.fromString("00efcdab-8967-4523-01ef-8967cd45ab23")
 
 // =====================================================================================
 // |                                   Service
 // -------------------------------------------------------------------------------------
 // |
 // |
-// |
-// |
 // =====================================================================================
 
-class AppService(
-    private val device: BluetoothDevice,
-): Service() {
-
+class AppService: Service() {
     // --------------------------------------------------------------
     //                              Data
     // --------------------------------------------------------------
-    private var isServiceEnabled: Boolean = false
-
-    private val connectionObserver = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
     // ------------------ Binder ------------------
     private val binder = LocalBinder()
@@ -61,14 +65,22 @@ class AppService(
     )
 
     // ------------------ Bluetooth ------------------
+    private val appBluetoothGattCallback = AppBluetoothGattCallback()
+    private var device: BluetoothDevice? = null
+
     companion object bleStateProvider {
         data class BleState(
             val device: BluetoothDevice? = null,
             var connectionState: DeviceConnectionState = DeviceConnectionState.None
         )
 
+        private val _messages = MutableSharedFlow<String?>(
+            replay = 0,            // don’t replay old values
+            extraBufferCapacity = 64 // small buffer for backpressure
+        )
+
         val state = BleState()
-        var messages = MutableStateFlow<String?> (null)
+        var messages: SharedFlow<String?> = _messages  // collectors will access Flow using this var
 
         fun updateConnection(
             gatt: BluetoothGatt? = state.connectionState.gatt,
@@ -81,14 +93,76 @@ class AppService(
             state.connectionState = state.connectionState.copy(gatt, connectionState, mtu, services, messageSent, messageReceived)
 
             // Emit message updates to all observers
-            messages.value = messageReceived
+            _messages.tryEmit(messageReceived) // try-emit: non-suspending
+        }
+
+        fun subscribeToFlow(): SharedFlow<String?> {
+            return messages
         }
     }
 
-    private val appBluetoothGattCallback = AppBluetoothGattCallback()
+    // --------------------------------------------------------------
+    //               Public Functions to control Service
+    // --------------------------------------------------------------
+    public fun getCallback() : AppBluetoothGattCallback {
+        return appBluetoothGattCallback
+    }
 
-    private val characteristic: BluetoothGattCharacteristic? = null
-    private val service: BluetoothGattService? = null
+    // ------------------ Control Interface ViewModel ------------------
+    private val _responses = MutableSharedFlow<BleResponse>()
+    val responses: SharedFlow<BleResponse> = _responses.asSharedFlow() // readonly
+
+    sealed class BleResponse {
+        // Connection / Lifecycle
+        data class ConnectionState(val state: DeviceConnectionState?) : BleResponse()
+        object ServiceDestroyed : BleResponse()
+        object DeviceDisconnected : BleResponse()
+
+        // Access results
+        data class CharacteristicFound(val characteristic: BluetoothGattCharacteristic?) : BleResponse()
+        data class Mtu(val mtu: Int) : BleResponse()
+
+        // Errors
+        data class Error(val message: String) : BleResponse()
+    }
+
+    // TODO: control interface so viewModel can request for changes in
+    //  BLE connection, ask for details, change mtu etc..
+
+    @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
+    public fun destroyService() {
+        onDestroy()
+    }
+    public fun disconnectDevice() {
+        state.connectionState = DeviceConnectionState.None
+    }
+
+    @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
+    suspend fun getCharacteristic() {
+        val service = state.connectionState.gatt?.getService(SERVICE_UUID)
+
+        _responses.emit(
+            BleResponse.CharacteristicFound(
+                service?.getCharacteristic(CHARACTERISTIC_UUID))
+        )
+    }
+
+    suspend fun getMtu() {
+        val mtu = state.connectionState.mtu
+        _responses.emit(
+            BleResponse.Mtu(mtu)
+        )
+    }
+
+    suspend fun getConnectionState() {
+        _responses.emit(
+            BleResponse.ConnectionState(state.connectionState)
+        )
+    }
+
+    fun changeMtu(mtu: Int) {
+        updateConnection(mtu = mtu)
+    }
 
     // --------------------------------------------------------------
     //                           Overrides
@@ -126,7 +200,7 @@ class AppService(
             }
         }
 
-        // ------------------ 2. Call startForeground with permission ------------------
+        // ------------ 2. Call startForeground with permission ------------
         try {
             val notification = NotificationCompat.Builder(this, "CHANNEL_ID")
                 .setSmallIcon(R.drawable.ic_launcher_foreground)
@@ -159,15 +233,18 @@ class AppService(
         myData = MyData()
     }
 
+    @RequiresApi(Build.VERSION_CODES.TIRAMISU)
     @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        isServiceEnabled = true
         startForeground() // upgrade the service to foreground service
+
+        // The device object is passed using the Intent.apply {}
+        device = intent?.getParcelableExtra("BLE_DEVICE", BluetoothDevice::class.java)
 
         if (state.connectionState.gatt != null) {
             state.connectionState.gatt?.connect()
         } else {
-            state.connectionState.copy(gatt = device.connectGatt(this, false, appBluetoothGattCallback))
+            state.connectionState.copy(gatt = device?.connectGatt(this, false, appBluetoothGattCallback))
         }
 
         return START_STICKY // Restarts service if service gets killed
@@ -185,10 +262,5 @@ class AppService(
         state.connectionState = DeviceConnectionState.None
     }
 
-    // --------------------------------------------------------------
-    //                        Public Functions
-    // --------------------------------------------------------------
-    public fun getCallback() : AppBluetoothGattCallback {
-        return appBluetoothGattCallback
-    }
+
 }
