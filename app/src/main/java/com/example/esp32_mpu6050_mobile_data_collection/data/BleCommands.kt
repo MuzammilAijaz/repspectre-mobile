@@ -16,6 +16,7 @@ sealed class BleCommand {
 //        object StartBle : BleCommand()
         object StopBle : BleCommand()
         object DisconnectDevice : BleCommand()
+        object DiscoverServices : BleCommand()
     }
 
     // Access : no parameters, yes returns
@@ -24,6 +25,8 @@ sealed class BleCommand {
         object GetCharacteristic : BleCommand()
         object GetSensorData : BleCommand()
         object GetMtu : BleCommand()
+        object GetConnectionState : BleCommand()
+        object ReadCharacteristic : BleCommand()
     }
 
     // Change : yes parameters, no returns

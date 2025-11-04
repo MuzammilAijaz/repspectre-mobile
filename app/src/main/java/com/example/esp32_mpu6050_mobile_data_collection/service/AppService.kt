@@ -1,6 +1,7 @@
 package com.example.esp32_mpu6050_mobile_data_collection.service
 
 import android.Manifest
+import android.annotation.SuppressLint
 import android.app.ForegroundServiceStartNotAllowedException
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -8,6 +9,7 @@ import android.app.Service
 import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothGatt
 import android.bluetooth.BluetoothGattCharacteristic
+import android.bluetooth.BluetoothGattDescriptor
 import android.bluetooth.BluetoothGattService
 import android.content.Intent
 import android.content.pm.ServiceInfo
@@ -23,9 +25,17 @@ import androidx.core.content.PermissionChecker
 import com.example.esp32_mpu6050_mobile_data_collection.BLE.AppBluetoothGattCallback
 import com.example.esp32_mpu6050_mobile_data_collection.R
 import com.example.esp32_mpu6050_mobile_data_collection.data.DeviceConnectionState
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 import java.util.UUID
 
 // ------------------ Constants ------------------
@@ -51,12 +61,7 @@ class AppService: Service() {
     //                              Data
     // --------------------------------------------------------------
 
-    // ------------------ Binder ------------------
-    private val binder = LocalBinder()
-    inner class LocalBinder : Binder() {
-        fun getService(): AppService = this@AppService
-    }
-
+    /* This was meant to be sent to the native layer*/
     private lateinit var myData: MyData
     data class MyData(
         @Volatile var x: Float = 1.0f,
@@ -64,41 +69,31 @@ class AppService: Service() {
         @Volatile var z: Float = 1.0f
     )
 
+    // ------------------ Binder ------------------
+    private val binder = LocalBinder()
+    inner class LocalBinder : Binder() {
+        fun getService(): AppService = this@AppService
+    }
+
     // ------------------ Bluetooth ------------------
-    private val appBluetoothGattCallback = AppBluetoothGattCallback()
+    private val appBluetoothGattCallback = AppBluetoothGattCallback(this)
     private var device: BluetoothDevice? = null
 
-    companion object bleStateProvider {
+    private val _bleState =  MutableStateFlow(BleState())
+    val bleState = _bleState.asStateFlow() // public, read-only, read by repository -> viewModel
+
+    companion object BleStateProvider {
         data class BleState(
             val device: BluetoothDevice? = null,
             var connectionState: DeviceConnectionState = DeviceConnectionState.None
         )
+    }
 
-        private val _messages = MutableSharedFlow<String?>(
-            replay = 0,            // don’t replay old values
-            extraBufferCapacity = 64 // small buffer for backpressure
-        )
-
-        val state = BleState()
-        var messages: SharedFlow<String?> = _messages  // collectors will access Flow using this var
-
-        fun updateConnection(
-            gatt: BluetoothGatt? = state.connectionState.gatt,
-            connectionState: Int = state.connectionState.connectionState,
-            mtu: Int = state.connectionState.mtu,
-            services: List<BluetoothGattService> = state.connectionState.services,
-            messageSent: Boolean = state.connectionState.messageSent,
-            messageReceived: String = state.connectionState.messageReceived
-        ) {
-            state.connectionState = state.connectionState.copy(gatt, connectionState, mtu, services, messageSent, messageReceived)
-
-            // Emit message updates to all observers
-            _messages.tryEmit(messageReceived) // try-emit: non-suspending
-        }
-
-        fun subscribeToFlow(): SharedFlow<String?> {
-            return messages
-        }
+    // --------------------------------------------------------------
+    //                        Private Functions
+    // --------------------------------------------------------------
+    private fun resetConnection() {
+        _bleState.update { it.copy(connectionState = DeviceConnectionState.None) }
     }
 
     // --------------------------------------------------------------
@@ -121,6 +116,11 @@ class AppService: Service() {
         // Access results
         data class CharacteristicFound(val characteristic: BluetoothGattCharacteristic?) : BleResponse()
         data class Mtu(val mtu: Int) : BleResponse()
+        data class Service(val service: BluetoothGattService?) : BleResponse()
+        object CharacteristicRead : BleResponse()
+
+        // Change results
+        data class MtuChanged(val mtu: Int) : BleResponse()
 
         // Errors
         data class Error(val message: String) : BleResponse()
@@ -134,12 +134,12 @@ class AppService: Service() {
         onDestroy()
     }
     public fun disconnectDevice() {
-        state.connectionState = DeviceConnectionState.None
+        resetConnection()
     }
 
     @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
     suspend fun getCharacteristic() {
-        val service = state.connectionState.gatt?.getService(SERVICE_UUID)
+        val service = _bleState.value.connectionState.gatt?.getService(SERVICE_UUID)
 
         _responses.emit(
             BleResponse.CharacteristicFound(
@@ -148,20 +148,123 @@ class AppService: Service() {
     }
 
     suspend fun getMtu() {
-        val mtu = state.connectionState.mtu
+        val mtu = _bleState.value.connectionState.mtu
         _responses.emit(
             BleResponse.Mtu(mtu)
         )
     }
 
-    suspend fun getConnectionState() {
+    suspend fun getService() {
         _responses.emit(
-            BleResponse.ConnectionState(state.connectionState)
+            BleResponse.Service(_bleState.value.connectionState.gatt?.getService(SERVICE_UUID))
         )
     }
 
-    fun changeMtu(mtu: Int) {
-        updateConnection(mtu = mtu)
+    suspend fun getConnectionState() {
+        _responses.emit(
+            BleResponse.ConnectionState(_bleState.value.connectionState)
+        )
+    }
+
+    @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
+    suspend fun changeMtu(mtu: Int) {
+        if (_bleState.value.connectionState.gatt?.requestMtu(mtu)?: false) {
+            updateConnection(mtu = mtu) // actually change the mtu
+            _responses.emit(
+                BleResponse.MtuChanged(mtu) // let others know
+            )
+            Log.d("AppService", "MTU Changed to 200")
+        } else {
+            Log.d("AppService", "FAILED!! CHANGING OF MTU")
+        }
+    }
+
+    @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
+    suspend fun readCharacteristic() {
+        val result = _bleState.value.connectionState.gatt?.readCharacteristic(
+            _bleState.value.connectionState.gatt?.getService(SERVICE_UUID)
+                ?.getCharacteristic(CHARACTERISTIC_UUID)
+        )
+        _responses.emit(
+            BleResponse.CharacteristicRead
+        )
+    }
+
+    // --------------------------------------------------------------
+    //                     Used By Gatt Callback
+    // --------------------------------------------------------------
+
+    private var readJob: Job? = null
+    private var isActive: Boolean = true
+
+    @SuppressLint("MissingPermission")
+    @OptIn(ExperimentalCoroutinesApi::class)
+    fun subscribeToService() {
+        // Cancel previous reading loop if any
+        readJob?.cancel()
+
+        readJob = CoroutineScope(Dispatchers.IO).launch {
+            val gatt = _bleState.value.connectionState.gatt
+            if (gatt == null) {
+                Log.e("AppService", "No active GATT connection!")
+                return@launch
+            }
+
+            val targetService = gatt.getService(SERVICE_UUID)
+            val targetCharacteristic = targetService?.getCharacteristic(CHARACTERISTIC_UUID)
+
+            if (targetCharacteristic == null) {
+                Log.e("AppService", "Characteristic not found!")
+                return@launch
+            }
+
+            Log.d("AppService", "Subscribed to: ${targetCharacteristic.uuid}")
+
+            // Try enabling notifications first
+            val notificationEnabled = gatt.setCharacteristicNotification(targetCharacteristic, true)
+            val descriptor = targetCharacteristic.getDescriptor(
+                UUID.fromString("00002902-0000-1000-8000-00805f9b34fb")
+            )
+            descriptor?.value = BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
+            descriptor?.let { gatt.writeDescriptor(it) }
+
+            Log.d("AppService", "Notifications enabled: $notificationEnabled")
+
+            // 🔁 Fallback: loop reads manually if notifications don’t come
+            while (isActive) {
+                try {
+                    val success = gatt.readCharacteristic(targetCharacteristic)
+                } catch (e: Exception) {
+                    Log.e("AppService", "Read loop failed: ${e.message}")
+                    break
+                }
+            }
+        }
+    }
+
+    /* VERY IMPORTANT FUNCTION:
+    * Called by the Bluetooth GATT Callback functions on every State change */
+    fun updateConnection(
+        gatt: BluetoothGatt? = _bleState.value.connectionState.gatt,
+        connectionState: Int = _bleState.value.connectionState.connectionState,
+        mtu: Int = _bleState.value.connectionState.mtu,
+        services: List<BluetoothGattService> = _bleState.value.connectionState.services,
+        messageSent: Boolean = _bleState.value.connectionState.messageSent,
+        messageReceived: String = _bleState.value.connectionState.messageReceived
+    ) {
+        _bleState.update { old ->
+            old.copy(
+                connectionState = old.connectionState.copy(
+                    gatt = gatt,
+                    connectionState = connectionState,
+                    mtu = mtu,
+                    services = services,
+                    messageSent = messageSent,
+                    messageReceived = messageReceived
+                )
+            )
+        }
+        Log.d("AppService", "BLE state updated : now connection = $connectionState")
     }
 
     // --------------------------------------------------------------
@@ -180,7 +283,7 @@ class AppService: Service() {
             manager.createNotificationChannel(channel)
         }
 
-        // ------------------ 1. Check Permission ------------------
+        // ----- 1. Check Permission ------------------------------------
         // Before starting the service as foreground check that the app has the
         // appropriate runtime permissions.
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
@@ -200,7 +303,7 @@ class AppService: Service() {
             }
         }
 
-        // ------------ 2. Call startForeground with permission ------------
+        // ----- 2. Call startForeground with permissions ---------------
         try {
             val notification = NotificationCompat.Builder(this, "CHANNEL_ID")
                 .setSmallIcon(R.drawable.ic_launcher_foreground)
@@ -222,10 +325,9 @@ class AppService: Service() {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
                     && e is ForegroundServiceStartNotAllowedException
             ) {
-                // App not in a valid state to start foreground service
+                // App not in a valid _bleState.value to start foreground service
                 // (e.g. started from bg)
             }
-            // ...
         }
     }
 
@@ -236,17 +338,35 @@ class AppService: Service() {
     @RequiresApi(Build.VERSION_CODES.TIRAMISU)
     @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+
+        Log.d("AppService", "Started Service, Now configuring")
         startForeground() // upgrade the service to foreground service
 
         // The device object is passed using the Intent.apply {}
-        device = intent?.getParcelableExtra("BLE_DEVICE", BluetoothDevice::class.java)
-
-        if (state.connectionState.gatt != null) {
-            state.connectionState.gatt?.connect()
+        @Suppress("DEPRECATION")
+        val device: BluetoothDevice? = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            intent?.getParcelableExtra("BLE_DEVICE", BluetoothDevice::class.java)
         } else {
-            state.connectionState.copy(gatt = device?.connectGatt(this, false, appBluetoothGattCallback))
+            intent?.getParcelableExtra("BLE_DEVICE")
         }
 
+        if (device == null) {
+            Log.e("AppService", "Device is null - cannot connect")
+        } else {
+            Log.d("AppService", "Calling connectGatt() for device=${device.address}")
+            val gatt = device.connectGatt(this@AppService, false, appBluetoothGattCallback)
+            if (gatt != null) {
+                // record the returned BluetoothGatt immediately; do NOT call gatt.connect()
+                Log.d("AppService", "connectGatt() returned BluetoothGatt, waiting for callbacks...")
+            } else {
+                Log.e("AppService", "connectGatt() returned null")
+            }
+        }
+
+        Log.d("AppService", "State: ${bleState.value.connectionState.connectionState}")
+        Log.d("AppService", "Mtu: ${bleState.value.connectionState.mtu}")
+        Log.d("AppService", "Message: ${bleState.value.connectionState.messageReceived}")
+        Log.d("AppService", "Configuring complete")
         return START_STICKY // Restarts service if service gets killed
     }
 
@@ -257,10 +377,8 @@ class AppService: Service() {
     @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
     override fun onDestroy() {
         Log.d("AppService", "App Service DESTROYED!!")
-        state.connectionState.gatt?.disconnect()
-        state.connectionState.gatt?.close()
-        state.connectionState = DeviceConnectionState.None
+        _bleState.value.connectionState.gatt?.disconnect()
+        _bleState.value.connectionState.gatt?.close()
+        _bleState.update { it.copy(connectionState = DeviceConnectionState.None) }
     }
-
-
 }

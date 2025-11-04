@@ -1,11 +1,9 @@
 package com.example.esp32_mpu6050_mobile_data_collection.ui.view
 
 import android.Manifest
-import android.bluetooth.BluetoothGatt
-import android.bluetooth.BluetoothGattCallback
+import android.annotation.SuppressLint
 import android.util.Log
 import androidx.annotation.RequiresPermission
-import androidx.compose.runtime.collectAsState
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.ViewModelProvider.AndroidViewModelFactory.Companion.APPLICATION_KEY
@@ -13,28 +11,19 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.example.esp32_mpu6050_mobile_data_collection.data.AppBleRepository
-import com.example.esp32_mpu6050_mobile_data_collection.data.AppContainer
 import com.example.esp32_mpu6050_mobile_data_collection.data.BleCommand
-import com.example.esp32_mpu6050_mobile_data_collection.data.BleRepository
 import com.example.esp32_mpu6050_mobile_data_collection.data.SensorApplication
-import com.example.esp32_mpu6050_mobile_data_collection.data.appBleRepositoryProvider
 import com.example.esp32_mpu6050_mobile_data_collection.service.AppService
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import java.util.UUID
 
-// =====================================================================================
-// |                        ViewModel: Control and manage
-// -------------------------------------------------------------------------------------
-// |
-// |
-// =====================================================================================
+const val DEVICE_MTU = 200 // TODO: handle this better
 
+@SuppressLint("MissingPermission")
 class BleViewModel(
     val repository: AppBleRepository
 ) : ViewModel() {
@@ -54,20 +43,30 @@ class BleViewModel(
     private val _responses = MutableStateFlow<AppService.BleResponse?>(null)
     val responses: StateFlow<AppService.BleResponse?> = _responses
 
-    // ----- BLE Messages (data values) -----------------------------
-    /** Holds and caches the latest Message only, updated with change in Flow
-     * Survives configuration changes, as its MutableStateFlow */
-    private val _latestMessage = MutableStateFlow<String?>(null)
+    // ----- State --------------------------------------------------
+    data class BleUIState(
+         val bleState: AppService.BleStateProvider.BleState = AppService.BleStateProvider.BleState()
+    )
 
-    val latestMessage: StateFlow<String?> = _latestMessage.asStateFlow() // Read only Flow
+    private val _uiState: MutableStateFlow<BleUIState> = MutableStateFlow(BleUIState())
+    public val uiState: StateFlow<BleUIState> = _uiState.asStateFlow()
 
     // ----- Init ---------------------------------------------------
     init {
+        viewModelScope.launch {
+            handleResponse()
+            repository.responses.collectLatest { response ->
+                _responses.value = response
+            }
+        }
+
         // Coroutine responsible for collecting the latest message
         viewModelScope.launch {
-            repository.getMessagesFlow().collectLatest { message ->
-                _latestMessage.value = message
+            repository.bleState.collectLatest { bleState ->
+                Log.d("ViewModel", "New bleState: ${bleState.connectionState}")
+                _uiState.update { it.copy(bleState = bleState) }
             }
+            Log.d("ViewModel", "Got Ble State")
         }
     }
 
@@ -75,68 +74,62 @@ class BleViewModel(
     //                           Functions
     // --------------------------------------------------------------
 
+    public fun repositoryBindToService() {
+        repository.bindToService()
+    }
+
     // ----- Control Service from UI --------------------------------
-    // TODO: implement functions to allow user to control state of Service
+    @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
     public fun handleCommand(bleCommand: BleCommand) {
+        Log.d("ViewModel", "Inside HandleCommand")
         viewModelScope.launch {
+            Log.d("ViewModel", "Inside coRoutine")
+            // All the commands are handled by the Repository
             repository.handleCommand(bleCommand = bleCommand)
         }
     }
 
     public fun handleResponse() {
+        // TODO: Repository should handle all the responses instead
+
         viewModelScope.launch {
             responses.collect { response ->
-                when(reponse) {
-                    is AppService.BleResponse.
-                }
+                // TODO: handle all responses
             }
         }
     }
 
-    // ----- Old API ------------------------------------------------
-    // TODO: remove/ update them
+    // --------------------------------------------------------------
+    //                        User Commands
+    // --------------------------------------------------------------
+    // Used when the User requires any changes on the connection state or
+    //  device state via UI interaction.
 
-    data class BleUIState(
-        val connectionState: String = "None",
-        val
-
-    )
-
-    private val _uiState: BleUIstate = BleUIState()
-
+    // ----- Access Methods -----------------------------------------
+    @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
     public fun getConnectionState() {
-        handleCommand(BleCommand.Access.)
-    }
-
-    public fun getBleCallback() : BluetoothGattCallback {
-        if (mBound) {
-            return connection.
-        }
-    }
-
-    public fun getGattStatus(): BluetoothGatt? {return _uiState.value.connectionState.gatt}
-
-    public fun updateGattConnection(gatt: BluetoothGatt) {
-        _uiState.update { currentState ->
-            currentState.copy(connectionState = currentState.connectionState.copy(gatt = gatt))
-        }
-    }
-
-    public fun resetState() {
-        _uiState.value = BluetoothUiState()
+        handleCommand(BleCommand.Access.GetConnectionState)
     }
 
     @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
-    public fun disconnectAndClose() {
-        Appservice
-        _uiState.apply {
-            try {
-                _uiState.value.connectionState.gatt?.disconnect()
-                _uiState.value.connectionState.gatt?.close()
-            } catch (e: Exception) {
-                Log.e("BLE", "Error while closing GATT: ${e.message}")
-            }
-        }
-        resetState()
+    public fun getMtu() {
+        handleCommand(BleCommand.Access.GetMtu)
+    }
+
+    @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
+    public fun readCharacteristic() {
+        handleCommand(BleCommand.Access.ReadCharacteristic)
+    }
+
+    // ----- Change Methods -----------------------------------------
+    @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
+    public fun changeMtu() {
+        handleCommand(BleCommand.Change.ChangeMtu(DEVICE_MTU))
+    }
+
+    // ----- Control Methods ----------------------------------------
+    @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
+    public fun discoverServices() {
+        handleCommand(BleCommand.Control.DiscoverServices)
     }
 }

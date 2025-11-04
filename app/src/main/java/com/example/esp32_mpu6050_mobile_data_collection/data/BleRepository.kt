@@ -11,9 +11,11 @@ import androidx.annotation.RequiresPermission
 import com.example.esp32_mpu6050_mobile_data_collection.service.AppService
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 interface BleRepository {
@@ -23,20 +25,6 @@ interface BleRepository {
 class AppBleRepository(
     override val applicationContext: Context
 ) : BleRepository {
-    private val _messages: SharedFlow<String?> = AppService.messages
-    val messages: SharedFlow<String?> = _messages
-
-//    init {
-//        // Coroutine scope to always collect the latest messages (contains data)
-//        CoroutineScope(Dispatchers.IO).launch {
-//            messages.collect { msg ->
-//                if (msg != null) {
-//                    message = msg
-//                    Log.d("BLE Data", "Got Data")
-//                }
-//            }
-//        }
-//    }
 
     // --------------------------------------------------------------
     //                   Repository <-> Service
@@ -49,6 +37,9 @@ class AppBleRepository(
     private var mService: AppService? = null
     private var mBound: Boolean = false
 
+    private val _bleState = MutableStateFlow(AppService.BleStateProvider.BleState())
+    val bleState: StateFlow<AppService.BleStateProvider.BleState> = _bleState.asStateFlow()
+
     /** Defines callbacks for service binding, passed to bindService().  */
     private val connection = object : ServiceConnection {
 
@@ -58,10 +49,16 @@ class AppBleRepository(
             mService = binder.getService()
             mBound = true
 
+            // ----- Collectors for updating Flow and passing it on ---------
             CoroutineScope(Dispatchers.IO).launch {
                 // Get the latest response object
                 mService?.responses?.collect { response ->
                     _responses.emit(response)
+                }
+            }
+            CoroutineScope(Dispatchers.Default).launch {
+                mService?.bleState?.collect { state ->
+                    _bleState.value = state
                 }
             }
         }
@@ -76,7 +73,7 @@ class AppBleRepository(
         applicationContext.bindService(intent, connection, Context.BIND_AUTO_CREATE)
     }
 
-    fun unbindService() {
+    fun unbindService() { // TODO: implement this
         if (mBound) {
             applicationContext.unbindService(connection)
             mBound = false
@@ -93,15 +90,18 @@ class AppBleRepository(
         }
     }
 
+    @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
     private suspend fun handleAccessCommand(bleCommand: BleCommand) {
         when(bleCommand) {
             is BleCommand.Access.GetMtu -> mService?.getMtu()
             is BleCommand.Access.GetCharacteristic -> mService?.getConnectionState()
+            is BleCommand.Access.ReadCharacteristic -> mService?.readCharacteristic()
             else -> {}
         }
     }
 
-    private fun handleChangeCommand(bleCommand: BleCommand) {
+    @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
+    private suspend fun handleChangeCommand(bleCommand: BleCommand) {
         when(bleCommand) {
             is BleCommand.Change.ChangeMtu -> mService?.changeMtu(bleCommand.mtu)
             else -> {}
@@ -117,6 +117,7 @@ class AppBleRepository(
     //  to the service in order to START, STOP, RECONNECT, GET Details etc.
     @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
     suspend fun handleCommand(bleCommand: BleCommand) {
+        Log.d("ViewModel", "Inside coRoutine")
         when (bleCommand) {
             is BleCommand.Control -> handleControlCommand(bleCommand)
             is BleCommand.Access -> handleAccessCommand(bleCommand)
@@ -125,11 +126,5 @@ class AppBleRepository(
                 Log.d("Arguments", "incorrect bleCommand sent")
             }
         }
-    }
-
-    // ------------------ Public Functions ------------------
-    /** Returns a read-only Flow which can be observed */
-    fun getMessagesFlow(): Flow<String?> {
-        return messages // Returns read-only, observable
     }
 }
