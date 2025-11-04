@@ -29,8 +29,6 @@
 static volatile float pitch = 0.0f;
 static volatile float roll = 0.0f;
 static volatile float yaw = 0.0f;
-static float acceleration = 0.02f;
-static float rotationSpeed = 1.0f;
 
 void updateOrientationValues(float x, float y, float z) {
     pitch = x;
@@ -72,8 +70,10 @@ int main(void)
     camera.projection = CAMERA_PERSPECTIVE;             // Camera type
 
     Model model = LoadModel("modelResources/models/gltf/esp8266.glb");                  // Load model
-//    Texture2D texture = LoadTexture("modelResources/models/obj/plane_diffuse.png");  // Load model texture
-//    model.materials[0].maps[MATERIAL_MAP_DIFFUSE].texture = texture;            // Set map diffuse texture
+
+    Matrix baseTransform = MatrixRotateY(DEG2RAD * -90.0f);
+    // Apply the initial rotation only once (combine with model's existing transform)
+    model.transform = baseTransform;
 
     char textMessage [128];
 
@@ -87,14 +87,12 @@ int main(void)
         //----------------------------------------------------------------------------------
 
         // ------------------ Create Transformation ------------------
-        //rotationSpeed += acceleration;
-//        pitch = pitch + rotationSpeed;
-//        yaw = yaw + rotationSpeed;
-//        roll = roll + rotationSpeed;
+
         // -----------------------------------------------------------
 
         // Transformation matrix for rotations
-        model.transform = MatrixRotateXYZ((Vector3){ DEG2RAD*pitch, DEG2RAD*yaw, DEG2RAD*roll });
+        Matrix dynamicRotation = MatrixRotateXYZ((Vector3){ DEG2RAD*pitch, DEG2RAD*yaw, DEG2RAD*roll });
+        model.transform = MatrixMultiply(dynamicRotation, baseTransform);
         //----------------------------------------------------------------------------------
 
         // Draw
