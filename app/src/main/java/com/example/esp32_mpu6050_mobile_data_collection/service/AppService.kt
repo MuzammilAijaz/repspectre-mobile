@@ -254,7 +254,7 @@ class AppService: Service() {
         mtu: Int = _bleState.value.connectionState.mtu,
         services: List<BluetoothGattService> = _bleState.value.connectionState.services,
         messageSent: Boolean = _bleState.value.connectionState.messageSent,
-        messageReceived: String = _bleState.value.connectionState.messageReceived
+        messageReceived: SensorData = _bleState.value.connectionState.messageReceived
     ) {
         _bleState.update { old ->
             old.copy(
@@ -378,11 +378,30 @@ class AppService: Service() {
         return binder
     }
 
+    // Called when user removes the app from recents
+    @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
+    override fun onTaskRemoved(rootIntent: Intent?) {
+        super.onTaskRemoved(rootIntent)
+
+        Log.d("AppService", "App Service DESTROYED!!")
+        _bleState.value.connectionState.gatt?.disconnect()
+        _bleState.value.connectionState.gatt?.close()
+        _bleState.update { it.copy(connectionState = DeviceConnectionState.None) }
+
+        ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE)
+        stopSelf()
+    }
+
+    // Called when SYSTEM kills the application
     @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
     override fun onDestroy() {
         Log.d("AppService", "App Service DESTROYED!!")
         _bleState.value.connectionState.gatt?.disconnect()
         _bleState.value.connectionState.gatt?.close()
         _bleState.update { it.copy(connectionState = DeviceConnectionState.None) }
+
+        ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE)
+        stopSelf()
+        super.onDestroy()
     }
 }
