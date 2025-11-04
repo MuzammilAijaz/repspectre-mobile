@@ -50,7 +50,7 @@ class AppViewModel(
         accelerationRepository.insertItem(createEntityFromSession = createEntityFromSession)
     }
 
-
+// TODO: Move this somewhere else like the repository .......................................
     /** Returns List in form of : x, y, z */
     private fun parseString(string: String): List<Float>{
         val input = string

@@ -8,6 +8,7 @@ import android.content.ServiceConnection
 import android.os.IBinder
 import android.util.Log
 import androidx.annotation.RequiresPermission
+import com.example.esp32_mpu6050_mobile_data_collection.raylib.updateNativeOrientation
 import com.example.esp32_mpu6050_mobile_data_collection.service.AppService
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -16,6 +17,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 
 interface BleRepository {
@@ -61,10 +63,39 @@ class AppBleRepository(
                     _bleState.value = state
                 }
             }
+            // ----- Passing data to native side ----------------------------
+            CoroutineScope(Dispatchers.Default).launch {
+                _bleState.collectLatest { state ->
+                    val list = parseString(state.connectionState.messageReceived)
+                    // ESP SENDS : yaw, pitch ,roll -> 0, 1, 2
+                    // NATIVE TAKES : pitch, roll, yaw -> 1, 2, 0
+                    updateNativeOrientation(list[1], list[2], list[0])
+                }
+            }
         }
 
         override fun onServiceDisconnected(arg0: ComponentName) {
             mBound = false
+        }
+    }
+
+    // TODO: NOTE(code-duplication) -> this function was copied from AppViewModel...
+    /** Returns List in form of : x, y, z */
+    private fun parseString(string: String): List<Float>{
+        val input = string
+
+        val regex = Regex("""x=([-+]?\d*\.?\d+)\s+y=([-+]?\d*\.?\d+)\s+z=([-+]?\d*\.?\d+)""")
+        val match = regex.find(input)
+
+        if (match != null) {
+            val (x, y, z) = match.destructured
+            val xFloat = x.toFloat()
+            val yFloat = y.toFloat()
+            val zFloat = z.toFloat()
+            return listOf(xFloat,yFloat,zFloat)
+        }
+        else {
+            return listOf(0f, 0f, 0f)
         }
     }
 

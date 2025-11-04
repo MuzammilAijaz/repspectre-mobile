@@ -19,7 +19,7 @@ class AppBluetoothGattCallback(
     private val service: AppService
 ) : BluetoothGattCallback() {
 
-    val INITIAL_MTU: Int = 200
+    val INITIAL_MTU: Int = 242
     // =====================================================================================
     // |                            GATT Connection Callbacks
     // =====================================================================================
