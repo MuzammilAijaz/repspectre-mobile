@@ -15,6 +15,7 @@ import com.example.esp32_mpu6050_mobile_data_collection.data.entity.Acceleration
 import com.example.esp32_mpu6050_mobile_data_collection.data.entity.QuaternionEntity
 import com.example.esp32_mpu6050_mobile_data_collection.service.AppService
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -107,4 +108,7 @@ class AppViewModel(
         return floatListOf(_uiState.value.x, _uiState.value.y, _uiState.value.z)
     }
 
+    public fun getAllQuaternions(): Flow<List<QuaternionEntity>> {
+        return quaternionRepository.getAllItemsStream()
+    }
 }

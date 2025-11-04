@@ -97,6 +97,7 @@ dependencies {
 
     // ------------------ My Dependencies ------------------
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.9.4")
+    implementation(libs.androidx.navigation.compose.android)
     //Room
     val room_version = "2.8.3"
     implementation("androidx.room:room-runtime:${room_version}")

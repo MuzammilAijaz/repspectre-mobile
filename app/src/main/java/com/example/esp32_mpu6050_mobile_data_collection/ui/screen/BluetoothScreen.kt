@@ -55,24 +55,26 @@ import java.util.UUID
 @OptIn(ExperimentalAnimationApi::class)
 @RequiresApi(Build.VERSION_CODES.M)
 @Composable
-fun ConnectGATTSample() {
-
-    var selectedDevice by remember {
-        mutableStateOf<BluetoothDevice?>(null)
-    }
+fun ConnectGATTSample(
+    selectedDevice: BluetoothDevice?,
+    appViewModel: AppViewModel,
+    onSelectedDeviceChange: (BluetoothDevice?) -> Unit,
+    onDeviceFound: () -> Unit,
+) {
+//    var selectedDevice by remember {
+//        mutableStateOf<BluetoothDevice?>(null)
+//    }
     // Check that BT permissions and that BT is available and enabled
     BluetoothSampleBox {
         AnimatedContent(targetState = selectedDevice, label = "Selected device") { device ->
             if (device == null) {
                 // Scans for BT devices and handles clicks (see FindDeviceSample)
                 FindDevicesScreen {
-                    selectedDevice = it
+                    onSelectedDeviceChange(it)
                 }
             } else {
                 // Once a device is selected show the UI and try to connect device
-                ConnectDeviceScreen(device = device as BluetoothDevice) {
-                    selectedDevice = null
-                }
+                onDeviceFound()
             }
         }
     }
@@ -90,9 +92,8 @@ fun ConnectGATTSample() {
 @SuppressLint("InlinedApi")
 @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
 @Composable
-fun ConnectDeviceScreen(device: BluetoothDevice, onClose: () -> Unit) {
+fun ConnectDeviceScreen(device: BluetoothDevice, appViewModel: AppViewModel, onDatabaseShowButtonClick: () -> Unit, onClose: () -> Unit) {
     val viewModel: BleViewModel = viewModel(factory = BleViewModel.Factory)
-    val appViewModel: AppViewModel = viewModel(factory = AppViewModel.Factory)
 
     var isStoreDataOn: Boolean by remember { mutableStateOf(false) }
     var isNewSession: Boolean by remember { mutableStateOf(false) }
@@ -306,14 +307,8 @@ fun ConnectDeviceScreen(device: BluetoothDevice, onClose: () -> Unit) {
         }
 
         var showDatabase: Boolean by remember {mutableStateOf(false)}
-        Button(onClick = {
-                showDatabase = !showDatabase
-            }
-        ) {
+        Button(onClick = onDatabaseShowButtonClick ) {
             Text(text = "Show Database")
-        }
-        if (showDatabase) {
-
         }
 
         val context = LocalContext.current
