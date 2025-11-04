@@ -74,13 +74,9 @@ class BleViewModel(
     //                           Functions
     // --------------------------------------------------------------
 
-    public fun repositoryBindToService() {
-        repository.bindToService()
-    }
-
     // ----- Control Service from UI --------------------------------
     @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
-    public fun handleCommand(bleCommand: BleCommand) {
+    private fun handleCommand(bleCommand: BleCommand) {
         Log.d("ViewModel", "Inside HandleCommand")
         viewModelScope.launch {
             Log.d("ViewModel", "Inside coRoutine")
@@ -89,7 +85,7 @@ class BleViewModel(
         }
     }
 
-    public fun handleResponse() {
+    private fun handleResponse() {
         // TODO: Repository should handle all the responses instead
 
         viewModelScope.launch {
@@ -97,6 +93,15 @@ class BleViewModel(
                 // TODO: handle all responses
             }
         }
+    }
+
+
+    // --------------------------------------------------------------
+    //                        Public Function
+    // --------------------------------------------------------------
+
+    public fun repositoryBindToService() {
+        repository.bindToService()
     }
 
     // --------------------------------------------------------------
@@ -131,5 +136,9 @@ class BleViewModel(
     @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
     public fun discoverServices() {
         handleCommand(BleCommand.Control.DiscoverServices)
+    }
+
+    public fun disconnectGatt() {
+        handleCommand(BleCommand.Control.StopBle)
     }
 }

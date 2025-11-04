@@ -3,6 +3,7 @@ package com.example.esp32_mpu6050_mobile_data_collection.ui.screen
 import android.Manifest
 import android.annotation.SuppressLint
 import android.bluetooth.BluetoothDevice
+import android.bluetooth.BluetoothGattDescriptor
 import android.content.Intent
 import android.os.Build
 import android.util.Log
@@ -10,23 +11,29 @@ import androidx.annotation.RequiresApi
 import androidx.annotation.RequiresPermission
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.ExperimentalAnimationApi
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -34,8 +41,11 @@ import com.example.esp32_mpu6050_mobile_data_collection.BLE.BluetoothSampleBox
 import com.example.esp32_mpu6050_mobile_data_collection.BLE.FindDevicesScreen
 import com.example.esp32_mpu6050_mobile_data_collection.raylib.RaylibActivity
 import com.example.esp32_mpu6050_mobile_data_collection.service.AppService
+import com.example.esp32_mpu6050_mobile_data_collection.service.CHARACTERISTIC_UUID
+import com.example.esp32_mpu6050_mobile_data_collection.service.SERVICE_UUID
 import com.example.esp32_mpu6050_mobile_data_collection.ui.view.AppViewModel
 import com.example.esp32_mpu6050_mobile_data_collection.ui.view.BleViewModel
+import java.util.UUID
 
 // =====================================================================================
 // |                                Main Composable
@@ -131,6 +141,7 @@ fun ConnectDeviceScreen(device: BluetoothDevice, onClose: () -> Unit) {
             Log.d("Database", "Collection Started")
 
             // TODO: Handle this better -> when message is null
+            // TODO: PARSE IT ONCE
             appViewModel.insertValue(if (message != "") message else "Accel: x=0.0 y=0.0 z=0.0")
         }
 
@@ -174,126 +185,127 @@ fun ConnectDeviceScreen(device: BluetoothDevice, onClose: () -> Unit) {
         ) {
             Text(text = "Read characteristic")
         }
-
+// ----- --------------------------------------------------------// ----- --------------------------------------------------------
         // TODO: Re-Implement and Verify all these composables
-//        Button(
-//            onClick = {
-//                indications = !indications
-//                Log.d("BLE Data", "Indications: $indications")
-//
-//                val characteristic = state?.gatt
-//                    ?.getService(SERVICE_UUID)
-//                    ?.getCharacteristic(CHARACTERISTIC_UUID)
-//
-//                if (characteristic != null) {
-//                    state?.gatt?.setCharacteristicNotification(characteristic, indications)
-//
-//                    val descriptor = characteristic.getDescriptor(
-//                        UUID.fromString("00002902-0000-1000-8000-00805F9B34FB")
-//                    )
-//                    descriptor?.value = if (indications)
-//                        BluetoothGattDescriptor.ENABLE_INDICATION_VALUE
-//                    else
-//                        BluetoothGattDescriptor.DISABLE_NOTIFICATION_VALUE
-//
-//                    Log.d("BLE Data", "${descriptor?.value}")
-//
-//                    state?.gatt?.writeDescriptor(descriptor)
-//                }
-//            },
-//            colors = ButtonDefaults.buttonColors(
-//                containerColor = if (indications) Color.Green else Color.Gray
-//            )
-//        ) {
-//            Text(if (indications) "INDICATIONS ON" else "INDICATIONS OFF")
-//        }
-//
-//        Text(
-//            text="Store is ${if (isStoreDataOn) "enabled" else "disabled"}",
-//            modifier = Modifier.align(Alignment.CenterHorizontally)
-//        )
-//
-//        var isTimerModeOn: Boolean by remember { mutableStateOf(false) }
-//        Row(
-//
-//        ) {
-//            Button(
-//                onClick = {
-//                    isTimerModeOn = !isTimerModeOn
-//                },
-//                enabled = !isTimerModeOn,
-//            ) {
-//                Text(text = "Enable Timer Mode (10 seconds)")
-//            }
-//
-//            Button(
-//                onClick = {
-//                    isTimerModeOn = !isTimerModeOn
-//                },
-//                enabled = isTimerModeOn,
-//            ) {
-//                Text(text = "Stop Timer Mode")
-//            }
-//        }
-//
-//        if (isStoreDataOn) {
-//            val currentTime = System.currentTimeMillis()
-//            val startTime by remember { mutableLongStateOf(currentTime) }
-//            val duration = currentTime - startTime
-//            Text(text = "Time: ${(duration) / 1000}")
-//
-//            if (isTimerModeOn) {
-//                if ( duration > 10000 ) { // if greater than 10 seconds, close database connection
-//                    isStoreDataOn = false
-//                    isNewSession = false
-//                    appViewModel.stopOldSession()
-//                }
-//            }
-//        }
-//        Button(
-//            onClick = {
-//                if(isStoreDataOn == false) {
-//                    isStoreDataOn = true
-//                    isNewSession = true
-//                    // TODO() : serapte the UI and ViewModel Logic so i can do appViewModel.createNewSession() instead
-//                }
-//            },
-//            enabled = !isStoreDataOn,
-//            modifier = Modifier.background(if (!isStoreDataOn) Color.Red else Color.Green ).align(Alignment.CenterHorizontally)
-//        ) {
-//            Text(text = "Start")
-//        }
-//
-//            onClick = {
-//                if(isStoreDataOn == true) {
-//                    isStoreDataOn = false
-//                    isNewSession = false
-//                    appViewModel.stopOldSession()
-//                }
-//            },
-//            enabled = isStoreDataOn,
-//            modifier = Modifier.background(if (isStoreDataOn) Color.Red else Color.Green ).align(Alignment.CenterHorizontally)
-//        ) {
-//            Text(text = "Stop")
-//        }
-//
-//        Button(onClick = {
-//            // Close GATT connection
-//            viewModel.disconnectAndClose()
-//            // Open device selection screen
-//            onClose()
-//            }
-//        ) {
-//            Text(text = "Close")
-//        }
-//
-//        Button(onClick = {
-//            appViewModel.cleanDatabase()
-//            },
-//            enabled = !isStoreDataOn
-//        ) {
-//            Text(text = "CLEAN DATABASE!!!")
-//        }
+        Button(
+            onClick = {
+                indications = !indications
+                Log.d("BLE Data", "Indications: $indications")
+
+                val characteristic = bleState.connectionState.gatt
+                    ?.getService(SERVICE_UUID)
+                    ?.getCharacteristic(CHARACTERISTIC_UUID)
+
+                if (characteristic != null) {
+                    bleState.connectionState.gatt?.setCharacteristicNotification(characteristic, indications)
+
+                    val descriptor = characteristic.getDescriptor(
+                        UUID.fromString("00002902-0000-1000-8000-00805F9B34FB")
+                    )
+                    descriptor?.value = if (indications)
+                        BluetoothGattDescriptor.ENABLE_INDICATION_VALUE
+                    else
+                        BluetoothGattDescriptor.DISABLE_NOTIFICATION_VALUE
+
+                    Log.d("BLE Data", "${descriptor?.value}")
+
+                    bleState.connectionState.gatt?.writeDescriptor(descriptor)
+                }
+            },
+            colors = ButtonDefaults.buttonColors(
+                containerColor = if (indications) Color.Green else Color.Gray
+            )
+        ) {
+            Text(if (indications) "INDICATIONS ON" else "INDICATIONS OFF")
+        }
+
+        Text(
+            text="Store is ${if (isStoreDataOn) "enabled" else "disabled"}",
+            modifier = Modifier.align(Alignment.CenterHorizontally)
+        )
+
+        var isTimerModeOn: Boolean by remember { mutableStateOf(false) }
+        Row(
+
+        ) {
+            Button(
+                onClick = {
+                    isTimerModeOn = !isTimerModeOn
+                },
+                enabled = !isTimerModeOn,
+            ) {
+                Text(text = "Enable Timer Mode (10 seconds)")
+            }
+
+            Button(
+                onClick = {
+                    isTimerModeOn = !isTimerModeOn
+                },
+                enabled = isTimerModeOn,
+            ) {
+                Text(text = "Stop Timer Mode")
+            }
+        }
+
+        if (isStoreDataOn) {
+            val currentTime = System.currentTimeMillis()
+            val startTime by remember { mutableLongStateOf(currentTime) }
+            val duration = currentTime - startTime
+            Text(text = "Time: ${(duration) / 1000}")
+
+            if (isTimerModeOn) {
+                if ( duration > 10000 ) { // if greater than 10 seconds, close database connection
+                    isStoreDataOn = false
+                    isNewSession = false
+                    appViewModel.stopOldSession()
+                }
+            }
+        }
+        Button(
+            onClick = {
+                if(!isStoreDataOn) {
+                    isStoreDataOn = true
+                    isNewSession = true
+                    // TODO() : serapte the UI and ViewModel Logic so i can do appViewModel.createNewSession() instead
+                }
+            },
+            enabled = !isStoreDataOn,
+            modifier = Modifier.background(if (!isStoreDataOn) Color.Red else Color.Green ).align(Alignment.CenterHorizontally)
+        ) {
+            Text(text = "Start")
+        }
+
+        Button(
+            onClick = {
+                if(isStoreDataOn) {
+                    isStoreDataOn = false
+                    isNewSession = false
+                    appViewModel.stopOldSession()
+                }
+            },
+            enabled = isStoreDataOn,
+            modifier = Modifier.background(if (isStoreDataOn) Color.Red else Color.Green ).align(Alignment.CenterHorizontally)
+        ) {
+            Text(text = "Stop")
+        }
+
+        Button(onClick = {
+            // Close GATT connection
+            viewModel.disconnectGatt()
+            // Open device selection screen
+            onClose()
+            }
+        ) {
+            Text(text = "Close")
+        }
+
+        Button(onClick = {
+            appViewModel.cleanDatabase()
+            },
+            enabled = !isStoreDataOn
+        ) {
+            Text(text = "CLEAN DATABASE!!!")
+        }
 
         val context = LocalContext.current
         Button(onClick = {

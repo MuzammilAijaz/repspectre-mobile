@@ -92,8 +92,12 @@ class AppService: Service() {
     // --------------------------------------------------------------
     //                        Private Functions
     // --------------------------------------------------------------
+    @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
     private fun resetConnection() {
-        _bleState.update { it.copy(connectionState = DeviceConnectionState.None) }
+        if (_bleState.value.connectionState.gatt?.disconnect() != null) {
+            _bleState.update { it.copy(connectionState = DeviceConnectionState.None) }
+            Log.d("AppService", "Successfully Disconnected the Device")
+        }
     }
 
     // --------------------------------------------------------------
