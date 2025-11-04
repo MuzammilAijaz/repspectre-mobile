@@ -130,19 +130,17 @@ fun ConnectDeviceScreen(device: BluetoothDevice, onClose: () -> Unit) {
         Text(text = "Services: ${bleState.connectionState.services.joinToString { it.uuid.toString() + " " + it.type }}")
         Text(text = "Message sent: ${bleState.connectionState.messageSent}")
 
-        val message = bleState.connectionState.messageReceived
+        val message: AppService.SensorData = bleState.connectionState.messageReceived
 
-        Log.d("Sensor Data", "Message Value: $message")
-        Text(text = "Message received: $message")
+        Log.d("Sensor Data", "Quaternions: ${message.x} ${message.y} ${message.z} ${message.w}")
+        Text(text = "Quaternions: ${message.x} ${message.y} ${message.z} ${message.w}")
 
         if (isStoreDataOn) {
             if(isNewSession) {appViewModel.createNewSession() ; isNewSession = false}
 
             Log.d("Database", "Collection Started")
 
-            // TODO: Handle this better -> when message is null
-            // TODO: PARSE IT ONCE
-            appViewModel.insertValue(if (message != "") message else "Accel: x=0.0 y=0.0 z=0.0")
+            appViewModel.insertQuaternionValue(message)
         }
 
         Button(
@@ -305,6 +303,17 @@ fun ConnectDeviceScreen(device: BluetoothDevice, onClose: () -> Unit) {
             enabled = !isStoreDataOn
         ) {
             Text(text = "CLEAN DATABASE!!!")
+        }
+
+        var showDatabase: Boolean by remember {mutableStateOf(false)}
+        Button(onClick = {
+                showDatabase = !showDatabase
+            }
+        ) {
+            Text(text = "Show Database")
+        }
+        if (showDatabase) {
+
         }
 
         val context = LocalContext.current

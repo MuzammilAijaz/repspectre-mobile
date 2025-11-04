@@ -21,19 +21,38 @@
 
 #define RAYGUI_IMPLEMENTATION
 #include "raygui.h"
+#include "rlgl.h"
 
 // ------------------------------------------------------------------------------------
 // Private
 // ------------------------------------------------------------------------------------
+static volatile Quaternion quaternion = {
+        0.f,
+        0.f,
+        0.f,
+        0.f,
+};
+bool isQuaternionInitialized = false;
 
-static volatile float pitch = 0.0f;
-static volatile float roll = 0.0f;
-static volatile float yaw = 0.0f;
+bool isNoise(float xVal, float yVal, float zVal, float wVal) {
+    if (!isQuaternionInitialized) {isQuaternionInitialized = true; return false;}
 
-void updateOrientationValues(float x, float y, float z) {
-    pitch = x;
-    roll = y;
-    yaw = z;
+    const float noiseThreshold = 0.95f;
+    bool value = (fabsf(xVal - quaternion.x) > noiseThreshold ||
+            fabsf(yVal - quaternion.y) > noiseThreshold ||
+            fabsf(zVal - quaternion.z) > noiseThreshold ||
+            fabsf(wVal - quaternion.w) > noiseThreshold);
+
+    return value;
+}
+
+void updateQuaternionValues(float xVal, float yVal, float zVal, float wVal) {
+    if(!isNoise(xVal, yVal, zVal, wVal)) {
+        quaternion.x = xVal;
+        quaternion.y = yVal;
+        quaternion.z = zVal;
+        quaternion.w = wVal;
+    }
 }
 
 // ------------------------------------------------------------------------------------
@@ -42,8 +61,19 @@ void updateOrientationValues(float x, float y, float z) {
 
 JNIEXPORT void JNICALL
 Java_com_example_esp32_1mpu6050_1mobile_1data_1collection_raylib_NativeBridge_updateOrientation(
-        JNIEnv *env, jobject thiz, jfloat x, jfloat y, jfloat z) {
-    updateOrientationValues(x, y, z);
+        JNIEnv *env, jobject thiz, jfloat x, jfloat y, jfloat z, jfloat w) {
+
+    // MPU MARKINGS - ACTUAL MOVEMENT OF DEVICE - ACTUAL MOVEMENT ON GRAPH
+    // Y - ROLL - YAW
+    // Z - YAW - PITCH
+    // X - PITCH - ROLL
+
+    /* REMAPPINGS
+     * X -> Z
+     * Y -> X
+     * Z -> Y
+     */
+    updateQuaternionValues(y, z, x, w);
 }
 
 //------------------------------------------------------------------------------------
@@ -89,10 +119,14 @@ int main(void)
         // ------------------ Create Transformation ------------------
 
         // -----------------------------------------------------------
+        // QuaternionNormalize(quaternion); // was causing issue with noise detection...
+
+        Matrix dynamicRotation = QuaternionToMatrix(quaternion);
+        model.transform = MatrixMultiply(dynamicRotation, baseTransform);
 
         // Transformation matrix for rotations
-        Matrix dynamicRotation = MatrixRotateXYZ((Vector3){ DEG2RAD*pitch, DEG2RAD*yaw, DEG2RAD*roll });
-        model.transform = MatrixMultiply(dynamicRotation, baseTransform);
+//        Matrix dynamicRotation = MatrixRotateXYZ((Vector3){ DEG2RAD*pitch, DEG2RAD*yaw, DEG2RAD*roll });
+//        model.transform = MatrixMultiply(dynamicRotation, baseTransform);
         //----------------------------------------------------------------------------------
 
         // Draw
@@ -117,7 +151,7 @@ int main(void)
 //        DrawText("Yaw controlled with: KEY_A / KEY_S", 40, 420, 10, DARKGRAY);
 //
 //        DrawText("(c) WWI Plane Model created by GiaHanLam", screenWidth - 240, screenHeight - 20, 10, DARKGRAY);
-        sprintf(textMessage, "Value: %f, %f, %f", pitch, roll, yaw);
+        sprintf(textMessage, "Value: %f, %f, %f, %f", quaternion.x, quaternion.y, quaternion.z, quaternion.w);
         DrawText(textMessage, 20, 20, 30, DARKBLUE);
 
         if (GuiButton((Rectangle){4.0f, 4.0f, 100.0f, 40.0f}, "Back")) {

@@ -17,6 +17,10 @@ class AppContainer(private val context: Context) {
         AccelerationRepository(SensorDatabase.getDatabase(context).accelerationDao())
     }
 
+    val quaternionRepository: QuaternionRepository by lazy {
+        QuaternionRepository(SensorDatabase.getDatabase(context).quaternionDao())
+    }
+
     val bleRepository: AppBleRepository by lazy {
         AppBleRepository(context)
     }

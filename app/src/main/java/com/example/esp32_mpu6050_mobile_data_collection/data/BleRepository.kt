@@ -66,10 +66,9 @@ class AppBleRepository(
             // ----- Passing data to native side ----------------------------
             CoroutineScope(Dispatchers.Default).launch {
                 _bleState.collectLatest { state ->
-                    val list = parseString(state.connectionState.messageReceived)
-                    // ESP SENDS : yaw, pitch ,roll -> 0, 1, 2
-                    // NATIVE TAKES : pitch, roll, yaw -> 1, 2, 0
-                    updateNativeOrientation(list[1], list[2], list[0])
+                    val quaternions = _bleState.value.connectionState.messageReceived
+                    // ESP SENDS :
+                    updateNativeOrientation(quaternions.x, quaternions.y, quaternions.z, quaternions.w?:0f)
                 }
             }
         }

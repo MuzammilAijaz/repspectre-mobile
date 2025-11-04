@@ -4,7 +4,7 @@ object NativeBridge {
     init {
         System.loadLibrary("raymob")
     }
-    external fun updateOrientation(x: Float, y: Float, z: Float)
+    external fun updateOrientation(x: Float, y: Float, z: Float, w: Float)
 }
 
 /**
@@ -12,6 +12,6 @@ object NativeBridge {
  *
  * This function is called whenever there will be an update
  * of the values, managed by a thread. */
-fun updateNativeOrientation(x: Float, y: Float, z: Float) {
-    NativeBridge.updateOrientation(x, y, z)
+fun updateNativeOrientation(x: Float, y: Float, z: Float, w: Float) {
+    NativeBridge.updateOrientation(x, y, z, w)
 }

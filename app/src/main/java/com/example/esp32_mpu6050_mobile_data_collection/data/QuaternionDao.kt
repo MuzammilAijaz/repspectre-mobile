@@ -1,11 +1,3 @@
-/* =====================================================================================
- * |                           DAO Item for Acceleration
- * | -----------------------------------------------------------------------------------
- * | DAO : Interface class which contains the methods (which will be implemented by room automatically)
- * |    to create sessions and insert sensor values.
- * |
- * ===================================================================================== */
-
 package com.example.esp32_mpu6050_mobile_data_collection.data
 
 import androidx.room.Dao
@@ -14,26 +6,26 @@ import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Update
-import com.example.esp32_mpu6050_mobile_data_collection.data.entity.AccelerationEntity
 import com.example.esp32_mpu6050_mobile_data_collection.data.entity.AccelerationSessionEntity
+import com.example.esp32_mpu6050_mobile_data_collection.data.entity.QuaternionEntity
 import kotlinx.coroutines.flow.Flow
 
 @Dao
-interface AccelerationDao {
+interface QuaternionDao {
 
     // =====================================================================================
     // |                             Database Cleanup
     // =====================================================================================
 
     /** Deletes all rows from both acceleration and session tables */
-    @Query("DELETE FROM acceleration")
+    @Query("DELETE FROM quaternion")
     suspend fun deleteAllAcceleration()
 
-    @Query("DELETE FROM session")
+    @Query("DELETE FROM quaternion")
     suspend fun deleteAllSessions()
 
     /** Resets AUTOINCREMENT counters inside sqlite for both tables */
-    @Query("DELETE FROM sqlite_sequence WHERE name IN ('acceleration', 'session')")
+    @Query("DELETE FROM sqlite_sequence WHERE name IN ('quaternion', 'session')")
     suspend fun resetAutoIncrement()
 
     /** Convenience method to clear both tables */
@@ -44,10 +36,10 @@ interface AccelerationDao {
     }
 
     // =====================================================================================
-    // |                                 Acceleration Session Entity
+    // |                                 Quaternion Session Entity
     // =====================================================================================
 
-    /** Returns the sessionId so it can be used to create [com.example.esp32_mpu6050_mobile_data_collection.data.entity.AccelerationEntity] */
+    /** Returns the sessionId so it can be used to create [com.example.esp32_mpu6050_mobile_data_collection.data.entity.QuaternionEntity] */
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insertSessionItem(item: AccelerationSessionEntity): Long // Note: using long here to align with how sqlite stores data
 
@@ -58,21 +50,21 @@ interface AccelerationDao {
     suspend fun getLatestSessionId(): Long
 
     // =====================================================================================
-    // |                                Acceleration Entity
+    // |                                Quaternion Entity
     // =====================================================================================
 
     @Insert(onConflict = OnConflictStrategy.IGNORE)
-    suspend fun insertItem(item: AccelerationEntity)
+    suspend fun insertItem(item: QuaternionEntity)
 
     @Update()
-    suspend fun updateItem(item: AccelerationEntity)
+    suspend fun updateItem(item: QuaternionEntity)
 
     @Delete
-    suspend fun deleteItem(item: AccelerationEntity)
+    suspend fun deleteItem(item: QuaternionEntity)
 
-    @Query("SELECT * FROM acceleration WHERE id = :id")
-    fun getItem(id: Int): Flow<AccelerationEntity>
+    @Query("SELECT * FROM quaternion WHERE id = :id")
+    fun getItem(id: Int): Flow<QuaternionEntity>
 
-    @Query("SELECT * FROM acceleration")
-    fun getAllItems(): Flow<List<AccelerationEntity>>
+    @Query("SELECT * FROM quaternion")
+    fun getAllItems(): Flow<List<QuaternionEntity>>
 }

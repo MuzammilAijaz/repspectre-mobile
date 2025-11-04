@@ -152,18 +152,20 @@ class AppBluetoothGattCallback(
     // --------------------------------------------------------------
 
     fun roundOffDecimal(number: Number): Double? {
-        val df = DecimalFormat("#.##")
+        val df = DecimalFormat("#.####")
         df.roundingMode = RoundingMode.CEILING
         return df.format(number).toDouble()
     }
 
     private fun doOnRead(value: ByteArray) {
         val buffer = ByteBuffer.wrap(value).order(ByteOrder.LITTLE_ENDIAN)
-        val accelX = roundOffDecimal(buffer.float)
-        val accelY = roundOffDecimal(buffer.float)
-        val accelZ = roundOffDecimal(buffer.float)
-        Log.d("BluetoothCallback", "Accel: x=$accelX y=$accelY z=$accelZ")
+        val x = roundOffDecimal(buffer.float)?.toFloat()?:0f
+        val y = roundOffDecimal(buffer.float)?.toFloat()?:0f
+        val z = roundOffDecimal(buffer.float)?.toFloat()?:0f
+        val w = roundOffDecimal(buffer.float)?.toFloat()?:0f
+        // TODO: DO NOT SEND AS STRING MESSAGE, REMOVE THIS STUPID
+        Log.d("BluetoothCallback", "Accel: x=$x y=$y z=$z, z=$w")
 
-        service.updateConnection(messageReceived = "Accel: x=$accelX y=$accelY z=$accelZ")
+        service.updateConnection(messageReceived = AppService.SensorData(x,y,z,w))
     }
 }

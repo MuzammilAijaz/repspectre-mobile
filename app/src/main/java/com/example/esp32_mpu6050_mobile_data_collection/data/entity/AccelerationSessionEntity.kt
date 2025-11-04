@@ -1,4 +1,4 @@
-package com.example.esp32_mpu6050_mobile_data_collection.data
+package com.example.esp32_mpu6050_mobile_data_collection.data.entity
 
 import androidx.room.Entity
 import androidx.room.PrimaryKey

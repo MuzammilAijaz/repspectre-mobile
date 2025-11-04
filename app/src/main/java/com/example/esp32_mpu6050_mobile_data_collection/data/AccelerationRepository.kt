@@ -7,6 +7,8 @@
 
 package com.example.esp32_mpu6050_mobile_data_collection.data
 
+import com.example.esp32_mpu6050_mobile_data_collection.data.entity.AccelerationEntity
+import com.example.esp32_mpu6050_mobile_data_collection.data.entity.AccelerationSessionEntity
 import kotlinx.coroutines.flow.Flow
 
 class AccelerationRepository(

@@ -137,6 +137,7 @@ class AppService: Service() {
     public fun destroyService() {
         onDestroy()
     }
+    @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
     public fun disconnectDevice() {
         resetConnection()
     }
@@ -245,6 +246,13 @@ class AppService: Service() {
             }
         }
     }
+
+    data class SensorData(
+        val x: Float,
+        val y: Float,
+        val z: Float,
+        val w: Float? = null,
+    )
 
     /* VERY IMPORTANT FUNCTION:
     * Called by the Bluetooth GATT Callback functions on every State change */
@@ -383,6 +391,9 @@ class AppService: Service() {
     override fun onTaskRemoved(rootIntent: Intent?) {
         super.onTaskRemoved(rootIntent)
 
+        _bleState.value.connectionState.gatt?.disconnect()
+        _bleState.value.connectionState.gatt?.close()
+
         Log.d("AppService", "App Service DESTROYED!!")
         _bleState.value.connectionState.gatt?.disconnect()
         _bleState.value.connectionState.gatt?.close()
@@ -395,6 +406,9 @@ class AppService: Service() {
     // Called when SYSTEM kills the application
     @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
     override fun onDestroy() {
+        _bleState.value.connectionState.gatt?.disconnect()
+        _bleState.value.connectionState.gatt?.close()
+
         Log.d("AppService", "App Service DESTROYED!!")
         _bleState.value.connectionState.gatt?.disconnect()
         _bleState.value.connectionState.gatt?.close()
