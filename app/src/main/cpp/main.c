@@ -16,7 +16,7 @@
 ********************************************************************************************/
 
 #include "raymob.h"
-
+#include "rlgl.h"
 #include "raymath.h"        // Required for: MatrixRotateXYZ()
 
 #define RAYGUI_IMPLEMENTATION
@@ -76,6 +76,11 @@ Java_com_example_esp32_1mpu6050_1mobile_1data_1collection_raylib_NativeBridge_up
     updateQuaternionValues(y, z, x, w);
 }
 
+// ------------------------------------------------------------------------------------
+// My Functions
+// ------------------------------------------------------------------------------------
+void UpdateOrbitalCamera(Camera *camera, float deltaTime);
+
 //------------------------------------------------------------------------------------
 // Program main entry point
 //------------------------------------------------------------------------------------
@@ -89,7 +94,7 @@ int main(void)
     //SetConfigFlags(FLAG_MSAA_4X_HINT | FLAG_WINDOW_HIGHDPI);
     InitWindow(screenWidth, screenHeight, "raylib [models] example - yaw pitch roll");
 
-    GuiSetFont(GetFontDefault());
+    Font font = GetFontDefault();
     GuiLoadStyleDefault(); // reset style after drawing
 
     Camera camera = { 0 };
@@ -116,24 +121,24 @@ int main(void)
         // Update
         //----------------------------------------------------------------------------------
 
+        UpdateOrbitalCamera(&camera, 60.0f/60.0f);
+        // UpdateCamera(&camera, CAMERA_ORBITAL);
         // ------------------ Create Transformation ------------------
 
         // -----------------------------------------------------------
         // QuaternionNormalize(quaternion); // was causing issue with noise detection...
 
+        // Transformation matrix for rotations
         Matrix dynamicRotation = QuaternionToMatrix(quaternion);
         model.transform = MatrixMultiply(dynamicRotation, baseTransform);
 
-        // Transformation matrix for rotations
-//        Matrix dynamicRotation = MatrixRotateXYZ((Vector3){ DEG2RAD*pitch, DEG2RAD*yaw, DEG2RAD*roll });
-//        model.transform = MatrixMultiply(dynamicRotation, baseTransform);
         //----------------------------------------------------------------------------------
 
         // Draw
         //----------------------------------------------------------------------------------
         BeginDrawing();
 
-        ClearBackground(RAYWHITE);
+        ClearBackground((Color) {48, 48, 48, 255});
 
         // Draw 3D model (recommended to draw 3D always before 2D)
         BeginMode3D(camera);
@@ -152,7 +157,7 @@ int main(void)
 //
 //        DrawText("(c) WWI Plane Model created by GiaHanLam", screenWidth - 240, screenHeight - 20, 10, DARKGRAY);
         sprintf(textMessage, "Value: %f, %f, %f, %f", quaternion.x, quaternion.y, quaternion.z, quaternion.w);
-        DrawText(textMessage, 20, 20, 30, DARKBLUE);
+        DrawText(textMessage, 20, 20, 20, WHITE);
 
         if (GuiButton((Rectangle){4.0f, 4.0f, 100.0f, 40.0f}, "Back")) {
             EndDrawing();
@@ -172,4 +177,42 @@ int main(void)
     //--------------------------------------------------------------------------------------
 
     return 0;
+}
+
+// ------------------------------------------------------------------------------------
+// My Functions
+// ------------------------------------------------------------------------------------
+
+// Basic structure for manual orbital camera
+void UpdateOrbitalCamera(Camera *camera, float deltaTime) {
+    static float angleX = 0.0f;  // horizontal rotation
+    static float angleY = 20.0f; // vertical tilt
+    static float distance = 40.0f; // zoom distance
+
+    // Get input (mouse or touch)
+    if (IsMouseButtonDown(MOUSE_BUTTON_LEFT)) {
+        float dx = GetMouseDelta().x;
+        float dy = GetMouseDelta().y;
+
+        angleX += dx * 0.3f;
+        angleY += dy * 0.3f;
+
+        // Clamp vertical angle
+        if (angleY > 89.0f) angleY = 89.0f;
+        if (angleY < -89.0f) angleY = -89.0f;
+    }
+
+    // Zoom in/out
+    float wheel = GetMouseWheelMove();
+    distance -= wheel * 0.5f;
+    if (distance < 2.0f) distance = 2.0f;
+    if (distance > 50.0f) distance = 50.0f;
+
+    // Convert spherical coords → cartesian
+    Vector3 target = {0, 0, 0};
+    camera->position.x = target.x + distance * cosf(DEG2RAD * angleY) * sinf(DEG2RAD * angleX) * -1;
+    camera->position.y = target.y + distance * sinf(DEG2RAD * angleY) * -1;
+    camera->position.z = target.z + distance * cosf(DEG2RAD * angleY) * cosf(DEG2RAD * angleX) * -1;
+
+    camera->target = target;
 }
