@@ -8,12 +8,16 @@ import android.bluetooth.BluetoothGattDescriptor
 import android.bluetooth.BluetoothProfile
 import android.os.Build
 import android.util.Log
+import androidx.annotation.RequiresApi
 import androidx.annotation.RequiresPermission
 import com.example.esp32_mpu6050_mobile_data_collection.service.AppService
+import com.example.esp32_mpu6050_mobile_data_collection.service.CHARACTERISTIC_UUID
+import com.example.esp32_mpu6050_mobile_data_collection.service.SERVICE_UUID
 import java.math.RoundingMode
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.text.DecimalFormat
+import java.util.UUID
 
 class AppBluetoothGattCallback(
     private val service: AppService
@@ -29,6 +33,7 @@ class AppBluetoothGattCallback(
     // | Functions are called automatically, leading to change in state, leading to recomposition
     // =====================================================================================
 
+    @RequiresApi(Build.VERSION_CODES.TIRAMISU)
     @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
     override fun onConnectionStateChange(
         gatt: BluetoothGatt,
@@ -44,7 +49,6 @@ class AppBluetoothGattCallback(
             gatt.discoverServices()
             // request MTU (optional; request after connecting)
             gatt.requestMtu(INITIAL_MTU)
-
         } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
             Log.d("BluetoothCallback", "Disconnected")
             // handle disconnect if needed
@@ -67,12 +71,13 @@ class AppBluetoothGattCallback(
         service.updateConnection(gatt = gatt, mtu = mtu)
     }
 
+    @RequiresApi(Build.VERSION_CODES.TIRAMISU)
     @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
     override fun onServicesDiscovered(gatt: BluetoothGatt, status: Int) {
         super.onServicesDiscovered(gatt, status)
         service.updateConnection(services = gatt.services)
 
-        // ------------------ Print all Services and Characteristics ------------------
+        // --------- Print all Services and Characteristics --------------
         Log.d("BluetoothCallback", "FOUND, status: ${status}")
         gatt.services.forEach { service ->
             Log.d("BluetoothCallback", "Service: ${service.uuid}")
@@ -80,7 +85,29 @@ class AppBluetoothGattCallback(
                 Log.d("BluetoothCallback", "Service: ${characteristic.uuid}")
             }
         }
-        // ----- --------------------------------------------------------
+
+        // ----- Enable Notifications -----------------------------------
+        val gattService = gatt.getService(SERVICE_UUID)
+        val characteristic = gattService?.getCharacteristic(CHARACTERISTIC_UUID)
+
+        /** This tells android to look for data instead of sending request<->responses
+         *  without Calls the onCharacteristicChanged() on successful write */
+        Log.d("BluetoothCallback", "setting notifications")
+        gatt.setCharacteristicNotification(characteristic, true)
+
+        // Write to the CCCD of the descriptor of the characteristic we want to read
+        // to notify the device to send notifications.
+        // The CCCDs values is usually 0x2902
+        val descriptor = characteristic?.getDescriptor(UUID.fromString("00002902-0000-1000-8000-00805f9b34fb"))
+        descriptor?.let {
+            val enableNotificationByte = BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
+            it.value = enableNotificationByte // OLD API
+            // gatt.writeDescriptor(it, enableNotificationByte) // NEW API 33....
+            gatt.writeDescriptor(it) // OLD API
+            Log.d("BluetoothCallback", "Written to Descriptor: $enableNotificationByte.toString()")
+        }
+        // --------------------------------------------------------------
+
         service.subscribeToService()
     }
 
@@ -133,7 +160,7 @@ class AppBluetoothGattCallback(
         characteristic: BluetoothGattCharacteristic?
     ) {
         super.onCharacteristicChanged(gatt, characteristic)
-        Log.d("BluetoothCallback", "(2 arg)READ AUTOMATICALLY")
+        Log.d("BluetoothCallback", "Notification")
         val value = characteristic?.value
         doOnRead(value ?: byteArrayOf())
     }
@@ -144,7 +171,7 @@ class AppBluetoothGattCallback(
         value: ByteArray
     ) {
         super.onCharacteristicChanged(gatt, characteristic, value)
-        Log.d("BluetoothCallback", "(3 arg)READ AUTOMATICALLY")
+        Log.d("BluetoothCallback", "Notification")
         doOnRead(value)
     }
 
@@ -164,7 +191,7 @@ class AppBluetoothGattCallback(
         val z = roundOffDecimal(buffer.float)?.toFloat()?:0f
         val w = roundOffDecimal(buffer.float)?.toFloat()?:0f
         // TODO: DO NOT SEND AS STRING MESSAGE, REMOVE THIS STUPID
-        Log.d("BluetoothCallback", "Accel: x=$x y=$y z=$z, z=$w")
+        Log.d("BluetoothCallbackValues", "Accel: x=$x y=$y z=$z, z=$w")
 
         service.updateConnection(messageReceived = AppService.SensorData(x,y,z,w))
     }
