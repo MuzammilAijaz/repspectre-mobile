@@ -15,7 +15,9 @@ import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.os.Binder
 import android.os.Build
+import android.os.Handler
 import android.os.IBinder
+import android.os.Looper
 import android.util.Log
 import androidx.annotation.RequiresApi
 import androidx.annotation.RequiresPermission
@@ -29,6 +31,8 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -78,6 +82,9 @@ class AppService: Service() {
     // ------------------ Bluetooth ------------------
     private val appBluetoothGattCallback = AppBluetoothGattCallback(this)
     private var device: BluetoothDevice? = null
+    private var bluetoothGatt: BluetoothGatt? = null
+
+    private var isConnecting = false
 
     private val _bleState =  MutableStateFlow(BleState())
     val bleState = _bleState.asStateFlow() // public, read-only, read by repository -> viewModel
@@ -88,16 +95,39 @@ class AppService: Service() {
             var connectionState: DeviceConnectionState = DeviceConnectionState.None
         )
     }
+    // ------------------ Handler and Scope ------------------
+    private val handler = Handler(Looper.getMainLooper())
+    private val coroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
+    public var isServiceDestructionRequired: Boolean = false
 
     // --------------------------------------------------------------
     //                        Private Functions
     // --------------------------------------------------------------
+
+    /** Fully destroys the service. */
     @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
     private fun resetConnection() {
-        if (_bleState.value.connectionState.gatt?.disconnect() != null) {
-            _bleState.update { it.copy(connectionState = DeviceConnectionState.None) }
-            Log.d("AppService", "Successfully Disconnected the Device")
+        isServiceDestructionRequired = true
+
+        // after .disconnect() is done, onConnectionChange callback is called, which is use to close the connection fully
+        val gatt = _bleState.value.connectionState.gatt
+        if (gatt != null) {
+            Log.d("AppService", "Requesting disconnection...")
+
+            // Collision avoidance
+            handler.removeCallbacksAndMessages(null)  // cancel any delayed tasks
+            coroutineScope.cancel()  // cancel any ongoing coroutines to avoid
+
+            // REQUEST for disconnection; actual disconnection done by gatt.close() in onConnectionChanged callback
+            unsubscribeAndDisableDeviceNotification(gatt)
+            Log.d("ServiceOnClose", "resetting connectiong")
         }
+    }
+    // onConnectionChange callback calls this function
+    // clearing the bleState object of the app
+    public fun resetBleState() {
+        _bleState.value = BleState(null, DeviceConnectionState.None)
     }
 
     // --------------------------------------------------------------
@@ -139,6 +169,7 @@ class AppService: Service() {
     }
     @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
     public fun disconnectDevice() {
+        Log.d("ServiceOnClose", "Disconnecting from device")
         resetConnection()
     }
 
@@ -276,7 +307,6 @@ class AppService: Service() {
                 )
             )
         }
-        Log.d("AppService", "BLE state updated : now connection = $connectionState")
     }
 
     // --------------------------------------------------------------
@@ -351,12 +381,25 @@ class AppService: Service() {
     @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
 
-        Log.d("AppService", "Started Service, Now configuring")
+        Log.d("AppServiceConnection", "Started Service, Now configuring")
         startForeground() // upgrade the service to foreground service
 
+        // ----- Guard : avoid multiple connection instances ------------
+        // If already connecting or connected, skip re-connect
+        if (bluetoothGatt != null) {
+            Log.d("AppService", "Already connected or connecting, ignoring duplicate startCommand()")
+            return START_STICKY
+        }
+
+        if (isConnecting) {
+            Log.d("AppService", "Connection already in progress, ignoring duplicate startCommand()")
+            return START_STICKY
+        }
+
+        // ----- --------------------------------------------------------
         // The device object is passed using the Intent.apply {}
         @Suppress("DEPRECATION")
-        val device: BluetoothDevice? = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        device = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             intent?.getParcelableExtra("BLE_DEVICE", BluetoothDevice::class.java)
         } else {
             intent?.getParcelableExtra("BLE_DEVICE")
@@ -364,10 +407,14 @@ class AppService: Service() {
 
         if (device == null) {
             Log.e("AppService", "Device is null - cannot connect")
-        } else {
-            Log.d("AppService", "Calling connectGatt() for device=${device.address}")
-            val gatt = device.connectGatt(this@AppService, false, appBluetoothGattCallback)
-            if (gatt != null) {
+        }
+        else {
+            Log.d("AppService", "Calling connectGatt() for device=${device?.address}")
+
+            isConnecting = true
+            bluetoothGatt = device?.connectGatt(this@AppService, false, appBluetoothGattCallback)
+
+            if (bluetoothGatt != null) {
                 // record the returned BluetoothGatt immediately; do NOT call gatt.connect()
                 Log.d("AppService", "connectGatt() returned BluetoothGatt, waiting for callbacks...")
             } else {
@@ -375,10 +422,10 @@ class AppService: Service() {
             }
         }
 
-        Log.d("AppService", "State: ${bleState.value.connectionState.connectionState}")
-        Log.d("AppService", "Mtu: ${bleState.value.connectionState.mtu}")
-        Log.d("AppService", "Message: ${bleState.value.connectionState.messageReceived}")
-        Log.d("AppService", "Configuring complete")
+//        Log.d("AppService", "State: ${bleState.value.connectionState.connectionState}")
+//        Log.d("AppService", "Mtu: ${bleState.value.connectionState.mtu}")
+//        Log.d("AppService", "Message: ${bleState.value.connectionState.messageReceived}")
+//        Log.d("AppService", "Configuring complete")
         return START_STICKY // Restarts service if service gets killed
     }
 
@@ -390,29 +437,79 @@ class AppService: Service() {
     @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
     override fun onTaskRemoved(rootIntent: Intent?) {
         super.onTaskRemoved(rootIntent)
+        isServiceDestructionRequired = true
 
-        _bleState.value.connectionState.gatt?.disconnect()
-        _bleState.value.connectionState.gatt?.close()
+        // Tell android to no longer subscribe to notifications
+        unsubscribeAndDisableDeviceNotification(_bleState.value.connectionState.gatt) // request for disconnection
 
-        Log.d("AppService", "App Service DESTROYED!!")
-        _bleState.value.connectionState.gatt?.disconnect()
-        _bleState.value.connectionState.gatt?.close()
-        _bleState.update { it.copy(connectionState = DeviceConnectionState.None) }
-
-        ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE)
-        stopSelf()
+        Log.d("AppServiceDisconnection", "Service Requested Disconnection by user")
     }
 
     // Called when SYSTEM kills the application
     @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
     override fun onDestroy() {
-        _bleState.value.connectionState.gatt?.disconnect()
-        _bleState.value.connectionState.gatt?.close()
+        Log.d("AppServiceDisconnection", "Service Requested Disconnection by system")
+        isServiceDestructionRequired = true
 
-        Log.d("AppService", "App Service DESTROYED!!")
+        // Tell android to no longer subscribe to notifications
+        unsubscribeAndDisableDeviceNotification(_bleState.value.connectionState.gatt) // request for disconnection
+    }
+
+    private fun stopReadLoop() {
+        readJob?.cancel()
+        isActive = false
+        readJob = null
+    }
+
+    @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
+    fun unsubscribeAndDisableDeviceNotification(gatt: BluetoothGatt?) {
+        if (gatt == null) {
+            Log.d("AppServiceDisconnection", "STOPPING BECAUSE OF GATT = NULL")
+            stopService()
+        }
+
+        stopReadLoop()
+
+        val characteristic = gatt?.getService(SERVICE_UUID)
+            ?.getCharacteristic(CHARACTERISTIC_UUID)
+        if (characteristic != null) {
+            // Tell Android not to listen
+            gatt.setCharacteristicNotification(characteristic, false)
+
+            // Also disable on the ESP32
+            val descriptor = characteristic?.getDescriptor(UUID.fromString("00002902-0000-1000-8000-00805f9b34fb"))
+            descriptor?.let {
+                val enableNotificationByte = BluetoothGattDescriptor.DISABLE_NOTIFICATION_VALUE
+                it.value = enableNotificationByte // OLD API
+                // gatt.writeDescriptor(it, enableNotificationByte) // NEW API 33....
+                gatt.writeDescriptor(it) // OLD API
+                Log.d("AppServiceDisconnection", "Written to Descriptor: $enableNotificationByte.toString()")
+            }
+        }
+    }
+
+    @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
+    public fun requestDisconnection() {
+        Log.d("AppServiceDisconnection", "Disconnection to Gatt requested")
         _bleState.value.connectionState.gatt?.disconnect()
-        _bleState.value.connectionState.gatt?.close()
-        _bleState.update { it.copy(connectionState = DeviceConnectionState.None) }
+    }
+
+    /* This function is actually responsible to completely destroying the service
+    * which is called from onConnectionChanged after BLE gatt connection is fully closed */
+    public fun stopService(){
+        Log.d("AppServiceDisconnection", "SERVICE DESTROYED!!")
+
+        // ----------------------------------------------------------------------
+        //                                NOTE
+        // ----------------------------------------------------------------------
+        // For some odd reason, destroying the service doesn't fully destroy all
+        // the class attributes???? why i don't know -> maybe it takes time fully clear?
+        // and reopening the app fast enough will cause trouble
+        // ----------------------------------------------------------------------
+        bluetoothGatt = null
+        isConnecting = false
+        isServiceDestructionRequired = false
+        // ----------------------------------------------------------------------
 
         ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE)
         stopSelf()

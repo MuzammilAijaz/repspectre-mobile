@@ -14,23 +14,23 @@ sealed class BleCommand {
     // Control : no parameters, no return
     sealed class Control : BleCommand() {
 //        object StartBle : BleCommand()
-        object StopBle : BleCommand()
-        object DisconnectDevice : BleCommand()
-        object DiscoverServices : BleCommand()
+        object StopBle : BleCommand.Control()
+        object DisconnectDevice : BleCommand.Control()
+        object DiscoverServices : BleCommand.Control()
     }
 
     // Access : no parameters, yes returns
     sealed class Access : BleCommand() {
-        object GetService : BleCommand()
-        object GetCharacteristic : BleCommand()
-        object GetSensorData : BleCommand()
-        object GetMtu : BleCommand()
-        object GetConnectionState : BleCommand()
-        object ReadCharacteristic : BleCommand()
+        object GetService : BleCommand.Access()
+        object GetCharacteristic : BleCommand.Access()
+        object GetSensorData : BleCommand.Access()
+        object GetMtu : BleCommand.Access()
+        object GetConnectionState : BleCommand.Access()
+        object ReadCharacteristic : BleCommand.Access()
     }
 
     // Change : yes parameters, no returns
     sealed class Change : BleCommand() {
-        data class ChangeMtu(val mtu: Int) : BleCommand()
+        data class ChangeMtu(val mtu: Int) : BleCommand.Change()
     }
 }

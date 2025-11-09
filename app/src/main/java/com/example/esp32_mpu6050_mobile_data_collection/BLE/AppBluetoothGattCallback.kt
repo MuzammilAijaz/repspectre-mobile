@@ -49,9 +49,19 @@ class AppBluetoothGattCallback(
             gatt.discoverServices()
             // request MTU (optional; request after connecting)
             gatt.requestMtu(INITIAL_MTU)
-        } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
-            Log.d("BluetoothCallback", "Disconnected")
-            // handle disconnect if needed
+        }
+
+        else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
+            // Actually disconnect from device
+            gatt.close()
+            service.resetBleState() // reset our app state
+            Log.d("AppServiceDisconnection", "Gatt Closed")
+
+            // Only called app is closing
+            if (service.isServiceDestructionRequired) {
+                Log.d("AppServiceDisconnection", "Calling Stop Service")
+                service.stopService()
+            }
         }
 
         service.updateConnection(gatt = gatt, connectionState = newState, mtu = INITIAL_MTU)
@@ -142,6 +152,7 @@ class AppBluetoothGattCallback(
         doOnRead(value)
     }
 
+    @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
     override fun onDescriptorWrite(
         gatt: BluetoothGatt,
         descriptor: BluetoothGattDescriptor,
@@ -149,6 +160,20 @@ class AppBluetoothGattCallback(
     ) {
         super.onDescriptorWrite(gatt, descriptor, status)
         Log.d("BluetoothCallback", "Descriptor write status: $status value=${descriptor.value?.contentToString()}")
+
+        val cccdUuid = UUID.fromString("00002902-0000-1000-8000-00805f9b34fb")
+
+        // Check if the value is for disabling Notifications ; otherwise it will close GATT connection even
+        // on enable of notification
+        if (descriptor.uuid == cccdUuid && status == BluetoothGatt.GATT_SUCCESS) {
+            val value = descriptor.value
+            if (value != null && value.contentEquals(BluetoothGattDescriptor.DISABLE_NOTIFICATION_VALUE)) {
+                Log.d("AppServiceDisconnection", "CCCD disable acknowledged — disconnecting now")
+                gatt.disconnect()
+            } else {
+                Log.d("BluetoothCallback", "CCCD written but not disable — continuing normally")
+            }
+        }
     }
 
     // ------------------ Characteristic Change ------------------

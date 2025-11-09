@@ -57,7 +57,6 @@ import java.util.UUID
 @Composable
 fun ConnectGATTSample(
     selectedDevice: BluetoothDevice?,
-    appViewModel: AppViewModel,
     onSelectedDeviceChange: (BluetoothDevice?) -> Unit,
     onDeviceFound: () -> Unit,
 ) {

@@ -4,6 +4,7 @@ import android.Manifest
 import android.bluetooth.BluetoothDevice
 import androidx.annotation.RequiresPermission
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -40,21 +41,36 @@ fun AppScreen() {
         composable(route = ScreenRoutes.BluetoothSelectionScreen.name) {
             ConnectGATTSample(
                 selectedDevice = selectedDevice,
-                appViewModel = appViewModel,
                 onSelectedDeviceChange = onSelectedDeviceChange,
             ) {
                 navController.navigate(ScreenRoutes.BluetoothDeviceScreen.name)
             }
         }
         composable(route = ScreenRoutes.BluetoothDeviceScreen.name) {
-            ConnectDeviceScreen(
-                device = selectedDevice as BluetoothDevice,
-                appViewModel = appViewModel,
-                onDatabaseShowButtonClick = {
-                    navController.navigate(ScreenRoutes.DataScreen.name)
-                },
-            ) {
-                onSelectedDeviceChange(null)
+            // android holds the old screen until recomposition is fully done, so we have to manage
+            // the case where user pressed the close button in this screen, leading to selectedDevice
+            // being read as Null
+
+            val device = selectedDevice as? BluetoothDevice
+            if (device != null) {
+                ConnectDeviceScreen(
+                    device = device,
+                    appViewModel = appViewModel,
+                    onDatabaseShowButtonClick = {
+                        navController.navigate(ScreenRoutes.DataScreen.name)
+                    },
+                ) {
+                    onSelectedDeviceChange(null)
+                    navController.navigate(ScreenRoutes.BluetoothSelectionScreen.name)
+                }
+            }
+            else {
+                // LaunchedEffect to ensure they run after composition
+                LaunchedEffect(Unit) {
+                    navController.navigate(ScreenRoutes.BluetoothSelectionScreen.name) {
+                        popUpTo(ScreenRoutes.BluetoothDeviceScreen.name) { inclusive = true }
+                    }
+                }
             }
         }
         composable(route = ScreenRoutes.DataScreen.name) {

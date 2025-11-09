@@ -81,6 +81,8 @@ class BleViewModel(
         viewModelScope.launch {
             Log.d("ViewModel", "Inside coRoutine")
             // All the commands are handled by the Repository
+
+            Log.d("ServiceOnClose", "inside coroutine")
             repository.handleCommand(bleCommand = bleCommand)
         }
     }
@@ -139,6 +141,7 @@ class BleViewModel(
     }
 
     public fun disconnectGatt() {
-        handleCommand(BleCommand.Control.StopBle)
+        Log.d("ServiceOnClose", "Calling handleCommand")
+        handleCommand(BleCommand.Control.DisconnectDevice)
     }
 }

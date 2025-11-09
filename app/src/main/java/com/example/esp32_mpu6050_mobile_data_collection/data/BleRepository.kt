@@ -113,8 +113,10 @@ class AppBleRepository(
     // ------------------ Interaction with Service ------------------
     @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
     private fun handleControlCommand(bleCommand: BleCommand) {
+
+        Log.d("ServiceOnClose", "Command is for: $bleCommand")
         when(bleCommand) {
-            is BleCommand.Control.StopBle -> mService?.destroyService()
+            is BleCommand.Control.StopBle -> mService?.destroyService() // questionable, kills the whole service, probably remove this!!!!
             is BleCommand.Control.DisconnectDevice -> mService?.disconnectDevice()
             else -> {}
         }
@@ -147,9 +149,13 @@ class AppBleRepository(
     //  to the service in order to START, STOP, RECONNECT, GET Details etc.
     @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
     suspend fun handleCommand(bleCommand: BleCommand) {
+        Log.d("ServiceOnClose", "inside suspend function inside repo")
         Log.d("ViewModel", "Inside coRoutine")
         when (bleCommand) {
-            is BleCommand.Control -> handleControlCommand(bleCommand)
+            is BleCommand.Control -> {
+                Log.d("ServiceOnClose", "Dispatching to Control handler")
+                handleControlCommand(bleCommand)
+            }
             is BleCommand.Access -> handleAccessCommand(bleCommand)
             is BleCommand.Change -> handleChangeCommand(bleCommand)
             else -> {
