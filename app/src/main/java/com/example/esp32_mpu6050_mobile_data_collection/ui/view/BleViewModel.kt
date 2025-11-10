@@ -14,10 +14,12 @@ import com.example.esp32_mpu6050_mobile_data_collection.data.AppBleRepository
 import com.example.esp32_mpu6050_mobile_data_collection.data.BleCommand
 import com.example.esp32_mpu6050_mobile_data_collection.data.SensorApplication
 import com.example.esp32_mpu6050_mobile_data_collection.service.AppService
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
@@ -104,6 +106,10 @@ class BleViewModel(
 
     public fun repositoryBindToService() {
         repository.bindToService()
+    }
+
+    fun exposeMessageDataFlow(): Flow<AppService.SensorData> {
+        return uiState.map { it.bleState.connectionState.messageReceived }
     }
 
     // --------------------------------------------------------------

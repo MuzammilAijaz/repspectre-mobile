@@ -1,14 +1,7 @@
-/* =====================================================================================
- * |                    Repository to Manage Acceleration Values
- * | -----------------------------------------------------------------------------------
- * | Communicates with the DAO to retrieve values and return to (ex. ViewModels)
- * |
- * ===================================================================================== */
+package com.example.esp32_mpu6050_mobile_data_collection.data.database
 
-package com.example.esp32_mpu6050_mobile_data_collection.data
-
-import com.example.esp32_mpu6050_mobile_data_collection.data.entity.AccelerationEntity
-import com.example.esp32_mpu6050_mobile_data_collection.data.entity.AccelerationSessionEntity
+import com.example.esp32_mpu6050_mobile_data_collection.data.database.entity.AccelerationEntity
+import com.example.esp32_mpu6050_mobile_data_collection.data.database.entity.AccelerationSessionEntity
 import kotlinx.coroutines.flow.Flow
 
 class AccelerationRepository(

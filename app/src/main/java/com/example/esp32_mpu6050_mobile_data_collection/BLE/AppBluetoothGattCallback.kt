@@ -177,6 +177,7 @@ class AppBluetoothGattCallback(
     }
 
     // ------------------ Characteristic Change ------------------
+    // Handles the Notifications
     /* Old API (android API <=12) : uses 2 arg method
      * New API (android API >=13) : uses 3 arg method
      */

@@ -140,7 +140,8 @@ fun ConnectDeviceScreen(device: BluetoothDevice, appViewModel: AppViewModel, onD
 
             Log.d("Database", "Collection Started")
 
-            appViewModel.insertQuaternionValue(message)
+            //appViewModel.insertQuaternionValue(message)
+            appViewModel.startDataSave()
         }
 
         Button(
@@ -256,9 +257,12 @@ fun ConnectDeviceScreen(device: BluetoothDevice, appViewModel: AppViewModel, onD
                     isStoreDataOn = false
                     isNewSession = false
                     appViewModel.stopOldSession()
+                    appViewModel.stopDataSave()
+                    appViewModel.saveMessages()
                 }
             }
         }
+
         Button(
             onClick = {
                 if(!isStoreDataOn) {
@@ -279,6 +283,8 @@ fun ConnectDeviceScreen(device: BluetoothDevice, appViewModel: AppViewModel, onD
                     isStoreDataOn = false
                     isNewSession = false
                     appViewModel.stopOldSession()
+                    appViewModel.stopDataSave()
+                    appViewModel.saveMessages()
                 }
             },
             enabled = isStoreDataOn,

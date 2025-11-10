@@ -1,7 +1,7 @@
-package com.example.esp32_mpu6050_mobile_data_collection.data
+package com.example.esp32_mpu6050_mobile_data_collection.data.database
 
-import com.example.esp32_mpu6050_mobile_data_collection.data.entity.AccelerationSessionEntity
-import com.example.esp32_mpu6050_mobile_data_collection.data.entity.QuaternionEntity
+import com.example.esp32_mpu6050_mobile_data_collection.data.database.entity.AccelerationSessionEntity
+import com.example.esp32_mpu6050_mobile_data_collection.data.database.entity.QuaternionEntity
 import kotlinx.coroutines.flow.Flow
 
 class QuaternionRepository(
@@ -21,6 +21,16 @@ class QuaternionRepository(
         }
 
         quaternionDao.insertItem(item = createEntityFromSession(sessionId))
+    }
+
+    suspend fun insertItemBatch(createEntityListFromSession: (Long) -> List<QuaternionEntity>) {
+        // Session Id remains the same
+        if (newSession) {
+            sessionId = quaternionDao.insertSessionItem(AccelerationSessionEntity(startTime = System.currentTimeMillis()))
+            newSession = false
+        }
+
+        quaternionDao.insertItemBatch(items = createEntityListFromSession(sessionId))
     }
 
     /** Allows the creation of new session*/

@@ -12,10 +12,13 @@ import com.example.esp32_mpu6050_mobile_data_collection.raylib.updateNativeOrien
 import com.example.esp32_mpu6050_mobile_data_collection.service.AppService
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.channels.BufferOverflow
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
@@ -31,6 +34,16 @@ class AppBleRepository(
     // --------------------------------------------------------------
     //                   Repository <-> Service
     // --------------------------------------------------------------
+    // SHARES THE WHOLE BLE STATE, INCLUDING MESSAGES (VERY BIG)!!!
+    private val _bleState = MutableStateFlow(AppService.BleStateProvider.BleState())
+    val bleState: StateFlow<AppService.BleStateProvider.BleState> = _bleState.asStateFlow()
+
+    // High-frequency sensor data — SharedFlow instead of StateFlow
+    private val _sensorFlow = MutableSharedFlow<AppService.SensorData>(
+        extraBufferCapacity = 512,                  // buffer so collectors can keep up
+        onBufferOverflow = BufferOverflow.DROP_OLDEST // drop oldest if full
+    )
+    val sensorFlow: Flow<AppService.SensorData> = _sensorFlow.asSharedFlow()
 
     // ------------------ Binding to Service ------------------
     private val _responses = MutableSharedFlow<AppService.BleResponse>()
@@ -38,9 +51,6 @@ class AppBleRepository(
 
     private var mService: AppService? = null
     private var mBound: Boolean = false
-
-    private val _bleState = MutableStateFlow(AppService.BleStateProvider.BleState())
-    val bleState: StateFlow<AppService.BleStateProvider.BleState> = _bleState.asStateFlow()
 
     /** Defines callbacks for service binding, passed to bindService().  */
     private val connection = object : ServiceConnection {
@@ -52,22 +62,32 @@ class AppBleRepository(
             mBound = true
 
             // ----- Collectors for updating Flow and passing it on ---------
+            // TODO: NOT IMPLEMENTED
             CoroutineScope(Dispatchers.IO).launch {
                 // Get the latest response object
                 mService?.responses?.collect { response ->
                     _responses.emit(response)
                 }
             }
-            CoroutineScope(Dispatchers.Default).launch {
+            // Collect low freq UI information (heavy and slow)
+            CoroutineScope(Dispatchers.IO).launch {
                 mService?.bleState?.collect { state ->
+                    //Log.d("RepositoryValues", "Accel: x=${state.connectionState.messageReceived.x} y=${state.connectionState.messageReceived.y} z=${state.connectionState.messageReceived.z}, z=${state.connectionState.messageReceived.w}")
                     _bleState.value = state
                 }
             }
+            // Collect raw sensor data (high frequency)
+            CoroutineScope(Dispatchers.IO).launch {
+                mService?.sensorFlow?.collect { data ->
+                    Log.d("RepositoryValues", "Accel: x=${data.x} y=${data.y} z=${data.z}, z=${data.w}")
+                    _sensorFlow.tryEmit(data)  // non-blocking
+                }
+            }
+
             // ----- Passing data to native side ----------------------------
-            CoroutineScope(Dispatchers.Default).launch {
+            CoroutineScope(Dispatchers.IO).launch {
                 _bleState.collectLatest { state ->
                     val quaternions = _bleState.value.connectionState.messageReceived
-                    // ESP SENDS :
                     updateNativeOrientation(quaternions.x, quaternions.y, quaternions.z, quaternions.w?:0f)
                 }
             }

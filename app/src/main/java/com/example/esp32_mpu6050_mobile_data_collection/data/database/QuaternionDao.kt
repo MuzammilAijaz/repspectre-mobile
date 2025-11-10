@@ -1,4 +1,4 @@
-package com.example.esp32_mpu6050_mobile_data_collection.data
+package com.example.esp32_mpu6050_mobile_data_collection.data.database
 
 import androidx.room.Dao
 import androidx.room.Delete
@@ -6,8 +6,8 @@ import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Update
-import com.example.esp32_mpu6050_mobile_data_collection.data.entity.AccelerationSessionEntity
-import com.example.esp32_mpu6050_mobile_data_collection.data.entity.QuaternionEntity
+import com.example.esp32_mpu6050_mobile_data_collection.data.database.entity.AccelerationSessionEntity
+import com.example.esp32_mpu6050_mobile_data_collection.data.database.entity.QuaternionEntity
 import kotlinx.coroutines.flow.Flow
 
 @Dao
@@ -39,7 +39,7 @@ interface QuaternionDao {
     // |                                 Quaternion Session Entity
     // =====================================================================================
 
-    /** Returns the sessionId so it can be used to create [com.example.esp32_mpu6050_mobile_data_collection.data.entity.QuaternionEntity] */
+    /** Returns the sessionId so it can be used to create [QuaternionEntity] */
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insertSessionItem(item: AccelerationSessionEntity): Long // Note: using long here to align with how sqlite stores data
 
@@ -55,6 +55,9 @@ interface QuaternionDao {
 
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insertItem(item: QuaternionEntity)
+
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insertItemBatch(items: List<QuaternionEntity>)
 
     @Update()
     suspend fun updateItem(item: QuaternionEntity)

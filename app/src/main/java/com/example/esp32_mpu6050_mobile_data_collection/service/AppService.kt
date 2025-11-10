@@ -33,6 +33,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -95,6 +96,16 @@ class AppService: Service() {
             var connectionState: DeviceConnectionState = DeviceConnectionState.None
         )
     }
+
+    // ------------------ Sensor Data Flow ------------------
+    // Use SharedFlow instead of StateFLow as it holds buffer of previous values
+    // instead of only maintaining the latest value.
+    private val _sensorFlow = MutableSharedFlow<AppService.SensorData>(
+        extraBufferCapacity = 512,
+        onBufferOverflow = BufferOverflow.DROP_OLDEST
+    )
+    val sensorFlow = _sensorFlow.asSharedFlow()
+
     // ------------------ Handler and Scope ------------------
     private val handler = Handler(Looper.getMainLooper())
     private val coroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -266,15 +277,15 @@ class AppService: Service() {
 
             Log.d("AppService", "Notifications enabled: $notificationEnabled")
 
-            // 🔁 Fallback: loop reads manually if notifications don’t come
-            while (isActive) {
-                try {
-                    val success = gatt.readCharacteristic(targetCharacteristic)
-                } catch (e: Exception) {
-                    Log.e("AppService", "Read loop failed: ${e.message}")
-                    break
-                }
-            }
+//            // 🔁 Fallback: loop reads manually if notifications don’t come
+//            while (isActive) {
+//                try {
+//                    val success = gatt.readCharacteristic(targetCharacteristic)
+//                } catch (e: Exception) {
+//                    Log.e("AppService", "Read loop failed: ${e.message}")
+//                    break
+//                }
+//            }
         }
     }
 
@@ -296,6 +307,7 @@ class AppService: Service() {
         messageReceived: SensorData = _bleState.value.connectionState.messageReceived
     ) {
         _bleState.update { old ->
+            Log.d("AppServiceValues", "Accel: x=${messageReceived.x} y=${messageReceived.y} z=${messageReceived.z}, z=${messageReceived.w}")
             old.copy(
                 connectionState = old.connectionState.copy(
                     gatt = gatt,
@@ -307,6 +319,7 @@ class AppService: Service() {
                 )
             )
         }
+        _sensorFlow.tryEmit(messageReceived) // ← broadcast fast data separately
     }
 
     // --------------------------------------------------------------
