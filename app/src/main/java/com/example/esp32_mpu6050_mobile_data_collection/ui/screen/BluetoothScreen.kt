@@ -91,7 +91,7 @@ fun ConnectGATTSample(
 @SuppressLint("InlinedApi")
 @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
 @Composable
-fun ConnectDeviceScreen(device: BluetoothDevice, appViewModel: AppViewModel, onDatabaseShowButtonClick: () -> Unit, onClose: () -> Unit) {
+fun ConnectDeviceScreen(device: BluetoothDevice, appViewModel: AppViewModel, onDatabaseShowButtonClick: () -> Unit, onSessionManagerButtonClick: () -> Unit,onClose: () -> Unit) {
     val viewModel: BleViewModel = viewModel(factory = BleViewModel.Factory)
 
     var isStoreDataOn: Boolean by remember { mutableStateOf(false) }
@@ -268,7 +268,7 @@ fun ConnectDeviceScreen(device: BluetoothDevice, appViewModel: AppViewModel, onD
                 if(!isStoreDataOn) {
                     isStoreDataOn = true
                     isNewSession = true
-                    // TODO() : serapte the UI and ViewModel Logic so i can do appViewModel.createNewSession() instead
+                    // TODO() : separate the UI and ViewModel Logic so i can do appViewModel.createNewSession() instead
                 }
             },
             enabled = !isStoreDataOn,
@@ -311,9 +311,12 @@ fun ConnectDeviceScreen(device: BluetoothDevice, appViewModel: AppViewModel, onD
             Text(text = "CLEAN DATABASE!!!")
         }
 
-        var showDatabase: Boolean by remember {mutableStateOf(false)}
         Button(onClick = onDatabaseShowButtonClick ) {
             Text(text = "Show Database")
+        }
+
+        Button(onClick = onSessionManagerButtonClick ) {
+            Text(text = "Show Session Manager")
         }
 
         val context = LocalContext.current

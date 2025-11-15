@@ -18,8 +18,9 @@ import com.example.esp32_mpu6050_mobile_data_collection.ui.view.AppViewModel
 
 enum class ScreenRoutes(name: String) {
     BluetoothSelectionScreen("BluetoothScreen"),
-    BluetoothDeviceScreen("BleDeviceSCreen"),
-    DataScreen("DataScreen")
+    BluetoothDeviceScreen("BleDeviceScreen"),
+    DataScreen("DataScreen"),
+    SessionManagerScreen("SessionManagerScreen")
 }
 
 @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
@@ -59,6 +60,9 @@ fun AppScreen() {
                     onDatabaseShowButtonClick = {
                         navController.navigate(ScreenRoutes.DataScreen.name)
                     },
+                    onSessionManagerButtonClick = {
+                        navController.navigate(ScreenRoutes.SessionManagerScreen.name)
+                    }
                 ) {
                     onSelectedDeviceChange(null)
                     navController.navigate(ScreenRoutes.BluetoothSelectionScreen.name)
@@ -79,6 +83,11 @@ fun AppScreen() {
             ) {
                 navController.navigate(ScreenRoutes.BluetoothDeviceScreen.name)
             }
+        }
+        composable(route = ScreenRoutes.SessionManagerScreen.name) {
+            SessionManagerScreen(
+                appViewModel = appViewModel
+            )
         }
 
     }
