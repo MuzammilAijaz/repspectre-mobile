@@ -21,9 +21,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.tooling.preview.Preview
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.esp32_mpu6050_mobile_data_collection.ui.theme.Esp32mpu6050mobiledatacollectionTheme
 import com.example.esp32_mpu6050_mobile_data_collection.ui.view.AppViewModel
 import com.example.esp32_mpu6050_mobile_data_collection.ui.view.LiftCategory
-import com.example.esp32_mpu6050_mobile_data_collection.ui.view.NoiseType
+import com.example.esp32_mpu6050_mobile_data_collection.ui.view.NoiseCategory
 import com.example.esp32_mpu6050_mobile_data_collection.ui.view.SensorDataFormat
 import com.example.esp32_mpu6050_mobile_data_collection.ui.view.Variation
 
@@ -31,7 +34,6 @@ import com.example.esp32_mpu6050_mobile_data_collection.ui.view.Variation
 fun SessionManagerScreen(
     appViewModel: AppViewModel,
 ) {
-    val sessionState by appViewModel.sessionDataState.collectAsState()
     val uiState by appViewModel.uiState.collectAsState()
 
     Column(
@@ -40,16 +42,16 @@ fun SessionManagerScreen(
         modifier = Modifier.verticalScroll(rememberScrollState())
     ) {
         val categoryOptions = LiftCategory.entries
-        val noiseOptions = NoiseType.entries
+        val noiseOptions = NoiseCategory.entries
         val speedVariationOptions = Variation.SpeedVariation.entries
         val dataFormatOptions = SensorDataFormat.entries
 
         SessionCategorySelectionRow(categoryOptions) { selectedOption ->
-            appViewModel.setCategory(selectedOption)
+            appViewModel.setLiftCategory(selectedOption)
         }
 
         SessionNoiseSelectionRow(noiseOptions) { selectedOption ->
-            appViewModel.setNoise(selectedOption)
+            appViewModel.setNoiseCategory(selectedOption)
         }
 
         SessionVariationSelectionRow(speedVariationOptions) { selectedOption, selectedRPE ->
@@ -106,12 +108,12 @@ fun SessionCategorySelectionRow(category: List<LiftCategory>, onSelectionChange:
 }
 
 @Composable
-fun SessionNoiseSelectionRow(noise: List<NoiseType>, onSelectionChange: (NoiseType) -> Unit) {
+fun SessionNoiseSelectionRow(noise: List<NoiseCategory>, onSelectionChange: (NoiseCategory) -> Unit) {
     FlowRow(
         verticalArrangement = Arrangement.Center,
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
-        var selectedOption: NoiseType by remember { mutableStateOf(noise.first()) }
+        var selectedOption: NoiseCategory by remember { mutableStateOf(noise.first()) }
 
         // Display a button for every option
         noise.forEach { label ->
@@ -210,7 +212,7 @@ fun SessionDataFormSelectionScreen(dataFormats: List<SensorDataFormat>, onSelect
 //@Composable
 //fun SessionNoiseSelectionRowPreview() {
 //    Esp32mpu6050mobiledatacollectionTheme{
-//        val options = NoiseType.entries.map { it.toString() }
+//        val options = NoiseCategory.entries.map { it.toString() }
 //        SessionNoiseSelectionRow(options)
 //    }
 //}
@@ -224,11 +226,12 @@ fun SessionDataFormSelectionScreen(dataFormats: List<SensorDataFormat>, onSelect
 //    }
 //}
 //
-
-//@Preview
-//@Composable
-//fun SessionManagerPreview() {
-//    Esp32mpu6050mobiledatacollectionTheme{
-//        SessionManagerScreen()
-//    }
-//}
+//
+@Preview
+@Composable
+fun SessionManagerPreview() {
+    Esp32mpu6050mobiledatacollectionTheme{
+        val viewModel: AppViewModel = viewModel(factory = AppViewModel.Factory)
+        SessionManagerScreen(viewModel)
+    }
+}

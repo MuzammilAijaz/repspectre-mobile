@@ -25,8 +25,8 @@ class AccelerationRepository(
                 startTime = System.currentTimeMillis(),
                 speedVariation = currentSession.sessionData.variation.speed.name,
                 rpe = currentSession.sessionData.variation.rpe,
-                noise = currentSession.sessionData.noise?.name,
-                liftCategory = currentSession.sessionData.category.name))
+                noise = currentSession.sessionData.noiseCategory?.name,
+                liftCategory = currentSession.sessionData.liftCategory.name))
 
             newSession = false
         }

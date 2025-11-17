@@ -34,10 +34,10 @@ class AppViewModel(
     // ----- State Data Classes ------------------------------------
     /* This will be used as the query builder for the session type */
     data class SessionData(
-        var category: LiftCategory = LiftCategory.FLOOR_PULL,
+        var liftCategory: LiftCategory = LiftCategory.FLOOR_PULL,
         var variation: Variation = Variation(rpe = 7, speed = Variation.SpeedVariation.CONTROLLED),
-        var noise: NoiseType? = null,
-        var dataFormat: SensorDataFormat = SensorDataFormat.ALL_RAW_VALUES,
+        var noiseCategory: NoiseCategory? = null,
+        var dataFormat: SensorDataFormat = SensorDataFormat.FULL_IMU_RAW,
     )
 
     data class UiState(
@@ -130,8 +130,8 @@ class AppViewModel(
         _uiState.update { it.copy(isNewSession = false) }
     }
 
-    fun setCategory(category: LiftCategory) {
-        _sessionDataState.update { it.copy(category = category) }
+    fun setLiftCategory(category: LiftCategory) {
+        _sessionDataState.update { it.copy(liftCategory = category) }
     }
 
     fun setVariation(variation: Variation) {
@@ -142,8 +142,8 @@ class AppViewModel(
         _sessionDataState.update { it.copy(dataFormat = format) }
     }
 
-    fun setNoise(noise: NoiseType?) {
-        _sessionDataState.update { it.copy(noise = noise) }
+    fun setNoiseCategory(noise: NoiseCategory?) {
+        _sessionDataState.update { it.copy(noiseCategory = noise) }
     }
 
     fun startCollection() {
@@ -247,13 +247,11 @@ class AppViewModel(
         }
     }
 
-
     fun stopDataSave() {
         _uiState.value.isDataSaveModeOn = false
         dataSaveJob?.cancel() // stop collecting immediately
         dataSaveJob = null
     }
-
 
     /** This function is responsible for starting the action to save the values inside
      * the ROOM database. */
@@ -273,24 +271,25 @@ class AppViewModel(
 /* Stores the values from [SessionManagedScreen.kt], which is used to build up the query
 * for the ROOM database */
 
-sealed class SessionType {
-    data class Lift(
-        val category: LiftCategory,
-        val variation: Variation? = null,
-    ) : SessionType()
-
-    data class Noise(
-        val type: NoiseType
-    ) : SessionType()
-}
+//sealed class SessionType {
+//    data class Lift(
+//        val category: LiftCategory,
+//        val variation: Variation? = null,
+//    ) : SessionType()
+//
+//    data class Noise(
+//        val type: NoiseType
+//    ) : SessionType()
+//}
 
 enum class LiftCategory {
-    FLOOR_PULL,
-    SQUAT,
-    HORIZONTAL_PRESS,
-    VERTICAL_PRESS,
-    WAIST_PULL,
-    GENERAL,
+    FLOOR_PULL,        // Deadlifts & floor-start pulls
+    SQUAT,             // All squat variations
+    PRESS_HORIZONTAL,  // Bench variations
+    PRESS_VERTICAL,    // OHP variations
+    UPRIGHT_PULL,      // Upright rows, curls, high pulls
+    ROW,               // Bent-over rows, Pendlay rows
+    OTHER              // Everything else
 }
 
 class Variation (
@@ -298,23 +297,50 @@ class Variation (
     val speed: SpeedVariation,
 ){
     enum class SpeedVariation{
-        EXPLOSIVE,
-        CONTROLLED,
-        SLOW,
+        NORMAL,
+        EXPLOSIVE,          // Aiming at Max acceleration (speed work)
+        FAST,               // Faster-than-normal reps
+        CONTROLLED,         // Standard tempo
+        SLOW_TEMPO,         // Intentionally slow (3–5 sec phases)
+        PAUSED,             // Pause reps (e.g., pause squat)
+        ECCENTRIC_EMPHASIS, // Slow descent, normal ascent
+        CONCENTRIC_EMPHASIS // Normal descent, slow ascent
     }
 }
 
-enum class NoiseType {
-    NOISE,
-    ROLLS,
-    MOVEMENT,
-    UNRACKS
+enum class NoiseCategory{
+    // Sensor-level noise
+    SENSOR_JITTER,            // Random IMU jitter
+    SENSOR_DRIFT,             // Gradual orientation drift
+    SENSOR_VIBRATION,         // High-frequency vibration on the bar
+
+    // Barbell non-lift movement noise
+    BARBELL_ROLLING,          // Rolling on floor or rack
+    BARBELL_MICROMOTION,      // Slight bar shifts with no rep
+    BARBELL_IMPACT,           // Bar hitting rack or safeties
+
+    // Lift-related transitions (not actual reps)
+    UNRACK_TRANSIENT,         // Unrack acceleration spike
+    RERACK_TRANSIENT,         // Rerack acceleration spike
+    SETUP_MOVEMENT,           // Athlete adjusting grip/feet before rep
+
+    // Environment
+    EXTERNAL_DISTURBANCE,     // Someone bumps into you/rack
+    PLATFORM_VIBRATION,       // Deadlift platform shaking
+    BACKGROUND_GYM_MOTION,    // People walking, movement nearby
+
+    // Barbell state
+    BARBELL_STATIONARY        // Completely still reference state
 }
 
+// TODO : not implemented yet
 enum class SensorDataFormat {
-    ACCELERATION,
-    QUATERNIONS,
-    GYROSCOPE,
-    ALL_RAW_VALUES, // contains both raw acceleration and gyroscope values
-    ALL_LINEAR_VALUES, // contains linear acceleration and gyro values
+    ACCELERATION_RAW,         // raw accel
+    GYROSCOPE_RAW,            // raw gyro
+    MAGNETOMETER_RAW,         // optional future expansion
+    QUATERNION_ORIENTATION,   // fused orientation
+    LINEAR_ACCELERATION,      // acceleration with gravity removed
+    FULL_IMU_RAW,             // accel + gyro + (maybe mag)
+    FULL_IMU_PROCESSED,       // fused + filtered signals
+    ALL_FEATURES,             // everything including derived values (jerk, etc)
 }
