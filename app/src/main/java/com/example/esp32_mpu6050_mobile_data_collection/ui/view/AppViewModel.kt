@@ -31,7 +31,7 @@ class AppViewModel(
     private val bleRepository: AppBleRepository
 ) : ViewModel() {
 
-
+    // ----- State Data Classes ------------------------------------
     /* This will be used as the query builder for the session type */
     data class SessionData(
         var category: LiftCategory = LiftCategory.FLOOR_PULL,
@@ -40,11 +40,24 @@ class AppViewModel(
         var dataFormat: SensorDataFormat = SensorDataFormat.ALL_RAW_VALUES,
     )
 
-    private val _sessionDataState = MutableStateFlow(SessionData())
+    data class UiState(
+        var isDataSaveModeOn: Boolean = false,
+        var isNewSession: Boolean = false,
+        var startTime: Long = 0,
+        var duration: Long = 0,
+        // NOTE:  END TIME IS CALCULATED DURING INSERTION FOR NOW......
+    )
 
-    // uiState for public access
+    // ----- States -------------------------------------------------
+    // ---- Holds Session data for query building ----
+    private val _sessionDataState = MutableStateFlow(SessionData())
     val sessionDataState: StateFlow<SessionData> = _sessionDataState.asStateFlow()
 
+    // ---- Holds ui state for UI elements ----
+    private val _uiState = MutableStateFlow(UiState())
+    val uiState: StateFlow<UiState> = _uiState.asStateFlow()
+
+    // ----- Factory ------------------------------------------------
     companion object {
         val Factory: ViewModelProvider.Factory = viewModelFactory {
             initializer {
@@ -57,13 +70,12 @@ class AppViewModel(
         }
     }
 
+    // ----- Private State ------------------------------------------
     private var messageList: MutableList<AppService.SensorData> = mutableListOf<AppService.SensorData>()
-
     private val lock = Any()
-    private var isDataSaveModeOn = false
 
     // =====================================================================================
-    // |                                 Private Functions
+    // |                         Repository Private Functions
     // =====================================================================================
 
     private suspend fun updateAccelDatabaseValues(createEntityFromSession: (sessionId: Long) -> AccelerationEntity) {
@@ -92,6 +104,14 @@ class AppViewModel(
     }
 
     // =====================================================================================
+    // |                                Private Functions
+    // =====================================================================================
+
+    private fun startTimer() {
+        _uiState.update { it.copy(startTime = System.currentTimeMillis(), duration = 0) }
+    }
+
+    // =====================================================================================
     // |                                 Public Functions
     // =====================================================================================
 
@@ -106,6 +126,8 @@ class AppViewModel(
         // Simply sets the flag for the creation of a new session
         quaternionRepository.createNewSession(_sessionDataState.value)
         accelerationRepository.createNewSession(_sessionDataState.value)
+
+        _uiState.update { it.copy(isNewSession = false) }
     }
 
     fun setCategory(category: LiftCategory) {
@@ -122,6 +144,20 @@ class AppViewModel(
 
     fun setNoise(noise: NoiseType?) {
         _sessionDataState.update { it.copy(noise = noise) }
+    }
+
+    fun startCollection() {
+        _uiState.update { it.copy(isDataSaveModeOn = true, isNewSession = true) }
+        createNewSession()
+        startDataSave()
+    }
+
+    fun stopCollection() {
+        _uiState.update { it.copy(isDataSaveModeOn = false, isNewSession = false) } // for when user stops manually
+
+        stopOldSession()
+        stopDataSave()
+        saveMessages()
     }
 
     public fun cleanDatabase() {
@@ -168,14 +204,15 @@ class AppViewModel(
             return
         }
 
-        isDataSaveModeOn = true
+        _uiState.update { it.copy(isDataSaveModeOn = true) } // just in case
+        timeHandler()
 
         dataSaveJob = viewModelScope.launch(Dispatchers.IO) {
             try {
                 // Collect BLE state updates continuously
                 bleRepository.sensorFlow.collect { state ->
                     // Extract sensor data from the BLE state
-                    if (isDataSaveModeOn) {
+                    if (_uiState.value.isDataSaveModeOn) {
                         synchronized(lock) {
                             Log.d("AppViewModelValues", "Accel: x=${state.x} y=${state.y} z=${state.z}, z=${state.w}")
                             messageList.add(state)
@@ -187,14 +224,32 @@ class AppViewModel(
             } catch (e: Exception) {
                 Log.e("AppViewModel", "Unexpected error collecting bleState", e)
             } finally {
-                isDataSaveModeOn = false
+                _uiState.update { it.copy(isDataSaveModeOn = false) }
                 dataSaveJob = null
             }
         }
     }
 
+    /** Sets the isDataSaveModeOn to false on timer expire */
+    fun timeHandler() {
+        startTimer()
+
+        viewModelScope.launch(Dispatchers.IO) {
+            while(_uiState.value.isDataSaveModeOn) {
+                val currentTime = System.currentTimeMillis()
+                _uiState.update { it.copy(duration = currentTime - _uiState.value.startTime) }
+
+                if (_uiState.value.duration > 10000) { // if greater than 10 seconds, close database connection
+                    break
+                }
+            }
+            stopCollection()
+        }
+    }
+
+
     fun stopDataSave() {
-        isDataSaveModeOn = false
+        _uiState.value.isDataSaveModeOn = false
         dataSaveJob?.cancel() // stop collecting immediately
         dataSaveJob = null
     }

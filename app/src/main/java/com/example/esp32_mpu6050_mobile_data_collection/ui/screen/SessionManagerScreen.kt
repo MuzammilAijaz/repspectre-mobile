@@ -1,11 +1,12 @@
 package com.example.esp32_mpu6050_mobile_data_collection.ui.screen
 
-import android.util.Log
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Text
@@ -13,7 +14,6 @@ import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -32,87 +32,48 @@ fun SessionManagerScreen(
     appViewModel: AppViewModel,
 ) {
     val sessionState by appViewModel.sessionDataState.collectAsState()
+    val uiState by appViewModel.uiState.collectAsState()
+
     Column(
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier.verticalScroll(rememberScrollState())
     ) {
         val categoryOptions = LiftCategory.entries
         val noiseOptions = NoiseType.entries
         val speedVariationOptions = Variation.SpeedVariation.entries
         val dataFormatOptions = SensorDataFormat.entries
 
-        // ------------- TODO : move this to the viewmodel. --------------------
-        // ---- Type of Life ----
-        var categorySelection: LiftCategory by remember { mutableStateOf(categoryOptions.first()) }
-        var noiseSelection: NoiseType by remember { mutableStateOf(noiseOptions.first()) }
-        var speedVariationSelection: Variation.SpeedVariation by remember { mutableStateOf(speedVariationOptions.first()) }
-        var rpeSelection: Int by remember { mutableStateOf(7) }
-        // ---- Type of Data required to be colllected ----
-        var dataFormatSelection: SensorDataFormat by remember { mutableStateOf(SensorDataFormat.ALL_RAW_VALUES) }
-        // ------------- TODO : move this to the viewmodel. --------------------
-
         SessionCategorySelectionRow(categoryOptions) { selectedOption ->
-            categorySelection = selectedOption
-            appViewModel.setCategory(categorySelection)
+            appViewModel.setCategory(selectedOption)
         }
 
         SessionNoiseSelectionRow(noiseOptions) { selectedOption ->
-            noiseSelection = selectedOption
-            appViewModel.setNoise(noiseSelection)
+            appViewModel.setNoise(selectedOption)
         }
 
         SessionVariationSelectionRow(speedVariationOptions) { selectedOption, selectedRPE ->
-            speedVariationSelection = selectedOption
-            rpeSelection = selectedRPE
             appViewModel.setVariation(Variation(rpe = selectedRPE, selectedOption))
         }
 
         SessionDataFormSelectionScreen(dataFormatOptions) { selectedOption ->
-            dataFormatSelection = selectedOption
             appViewModel.setSensorDataFormat(selectedOption)
         }
 
         // ----- Timer Functionality ------------------------------------
-        var isStoreDataOn by remember {mutableStateOf(false)}
-        var isNewSession by remember {mutableStateOf(false)}
-        var startTime by remember { mutableLongStateOf(0) }
-        var duration by remember { mutableLongStateOf(0)}
+        // Start the Timer if button pressed
         Button(
             onClick = {
-                isStoreDataOn = !isStoreDataOn
-                startTime = System.currentTimeMillis()
-                duration = 0
-                isNewSession = !isNewSession
+                if (!uiState.isDataSaveModeOn) appViewModel.startCollection() else appViewModel.stopCollection()
             }
         ) {
-            if (!isStoreDataOn) Text("Create Session and start Collecting Data") else
+            if (!uiState.isDataSaveModeOn) Text("Create Session and start Collecting Data") else
                 Text("Stop Storing")
         }
 
-        // Start the Timer if button pressed
-        if (isStoreDataOn) {
-            if(isNewSession) {
-                appViewModel.createNewSession()
-                isNewSession = false
-            }
-            Log.d("Database", "Collection Started")
-            appViewModel.startDataSave()
-        }
-
         // Display the Time
-        if (isStoreDataOn) {
-            val currentTime = System.currentTimeMillis()
-            duration = currentTime - startTime
-            Text(text = "Time: ${(duration) / 1000}")
-        }
-
-        // Stop the Timer if duration > 10seconds or user stops
-        if (duration > 10000 || !isStoreDataOn) { // if greater than 10 seconds, close database connection
-            isStoreDataOn = false
-            isNewSession = false
-            appViewModel.stopOldSession()
-            appViewModel.stopDataSave()
-            appViewModel.saveMessages()
+        if (uiState.isDataSaveModeOn) {
+            Text(text = "Time: ${(uiState.duration) / 1000}")
         }
         // --------------------------------------------------------------
     }
@@ -186,7 +147,7 @@ fun SessionVariationSelectionRow(speedVariation: List<Variation.SpeedVariation>,
                 val rpeInt = newVal.toIntOrNull()
                 if (rpeInt != null && rpeInt <= 10 && rpeInt >=0) {
                     rpe = newVal
-                    onSelectionChange(selectedOption, rpe.toInt())
+                    onSelectionChange(selectedOption, rpe.toIntOrNull()?: 7) // CONSTANT : 7 is the default rpe
                 }
             },
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
