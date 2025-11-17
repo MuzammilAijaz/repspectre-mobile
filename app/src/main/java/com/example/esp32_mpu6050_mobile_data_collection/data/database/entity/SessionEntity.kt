@@ -8,4 +8,9 @@ data class SessionEntity (
     @PrimaryKey(autoGenerate = true) val sessionId: Int = 0,
     val startTime: Long,
     val endTime: Long? = null,
+
+    val speedVariation: String,
+    val liftCategory: String,
+    val rpe: Int,
+    val noise: String? = null,
 )

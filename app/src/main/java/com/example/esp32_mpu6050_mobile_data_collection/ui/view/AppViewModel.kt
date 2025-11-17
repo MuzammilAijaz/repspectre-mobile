@@ -2,8 +2,6 @@ package com.example.esp32_mpu6050_mobile_data_collection.ui.view
 
 import android.R.attr.x
 import android.util.Log
-import androidx.collection.FloatList
-import androidx.collection.floatListOf
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.ViewModelProvider.AndroidViewModelFactory.Companion.APPLICATION_KEY
@@ -23,6 +21,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlin.coroutines.cancellation.CancellationException
 
@@ -32,17 +31,19 @@ class AppViewModel(
     private val bleRepository: AppBleRepository
 ) : ViewModel() {
 
-    data class AppUiState(
-        val x: Float = 0f,
-        val y: Float = 0f,
-        val z: Float = 0f,
+
+    /* This will be used as the query builder for the session type */
+    data class SessionData(
+        var category: LiftCategory = LiftCategory.FLOOR_PULL,
+        var variation: Variation = Variation(rpe = 7, speed = Variation.SpeedVariation.CONTROLLED),
+        var noise: NoiseType? = null,
+        var dataFormat: SensorDataFormat = SensorDataFormat.ALL_RAW_VALUES,
     )
 
-    val bleState: StateFlow<AppService.BleStateProvider.BleState> = bleRepository.bleState // only used when user presses store to database button
-    private val _uiState = MutableStateFlow(AppUiState())
+    private val _sessionDataState = MutableStateFlow(SessionData())
 
     // uiState for public access
-    val uiState: StateFlow<AppUiState> = _uiState.asStateFlow()
+    val sessionDataState: StateFlow<SessionData> = _sessionDataState.asStateFlow()
 
     companion object {
         val Factory: ViewModelProvider.Factory = viewModelFactory {
@@ -100,9 +101,27 @@ class AppViewModel(
             accelerationRepository.stopOldSession()
         }
     }
+
     public fun createNewSession() {
-        quaternionRepository.createNewSession()
-        accelerationRepository.createNewSession()
+        // Simply sets the flag for the creation of a new session
+        quaternionRepository.createNewSession(_sessionDataState.value)
+        accelerationRepository.createNewSession(_sessionDataState.value)
+    }
+
+    fun setCategory(category: LiftCategory) {
+        _sessionDataState.update { it.copy(category = category) }
+    }
+
+    fun setVariation(variation: Variation) {
+        _sessionDataState.update { it.copy(variation = variation) }
+    }
+
+    fun setSensorDataFormat(format: SensorDataFormat) {
+        _sessionDataState.update { it.copy(dataFormat = format) }
+    }
+
+    fun setNoise(noise: NoiseType?) {
+        _sessionDataState.update { it.copy(noise = noise) }
     }
 
     public fun cleanDatabase() {
@@ -134,16 +153,15 @@ class AppViewModel(
 //        }
 //    }
 
-    public fun returnCurrentValues(): FloatList {
-        return floatListOf(_uiState.value.x, _uiState.value.y, _uiState.value.z)
-    }
-
     public fun getAllQuaternions(): Flow<List<QuaternionEntity>> {
         return quaternionRepository.getAllItemsStream()
     }
 
     private var dataSaveJob: Job? = null
 
+    /** This function is responsible for fetching the latest values from the repository
+    * and appending the values to the messageList (the list will be stored in the database
+    * AFTER data collection has been stopped */
     fun startDataSave() {
         if (dataSaveJob?.isActive == true) {
             Log.d("AppViewModel", "startDataSave: collector already running — ignoring duplicate start")
@@ -181,6 +199,9 @@ class AppViewModel(
         dataSaveJob = null
     }
 
+
+    /** This function is responsible for starting the action to save the values inside
+     * the ROOM database. */
     fun saveMessages() {
         val batch: List<AppService.SensorData>
         synchronized(lock) {
@@ -189,4 +210,56 @@ class AppViewModel(
         }
         insertQuaternionValueBatch(batch)
     }
+}
+
+// =====================================================================================
+// |                                 Session Data Classes
+// -------------------------------------------------------------------------------------
+/* Stores the values from [SessionManagedScreen.kt], which is used to build up the query
+* for the ROOM database */
+
+sealed class SessionType {
+    data class Lift(
+        val category: LiftCategory,
+        val variation: Variation? = null,
+    ) : SessionType()
+
+    data class Noise(
+        val type: NoiseType
+    ) : SessionType()
+}
+
+enum class LiftCategory {
+    FLOOR_PULL,
+    SQUAT,
+    HORIZONTAL_PRESS,
+    VERTICAL_PRESS,
+    WAIST_PULL,
+    GENERAL,
+}
+
+class Variation (
+    val rpe: Int,
+    val speed: SpeedVariation,
+){
+    enum class SpeedVariation{
+        EXPLOSIVE,
+        CONTROLLED,
+        SLOW,
+    }
+}
+
+enum class NoiseType {
+    NOISE,
+    ROLLS,
+    MOVEMENT,
+    UNRACKS
+}
+
+enum class SensorDataFormat {
+    ACCELERATION,
+    QUATERNIONS,
+    GYROSCOPE,
+    ALL_RAW_VALUES, // contains both raw acceleration and gyroscope values
+    ALL_LINEAR_VALUES, // contains linear acceleration and gyro values
 }

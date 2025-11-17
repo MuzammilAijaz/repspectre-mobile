@@ -11,6 +11,7 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -21,35 +22,54 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.input.KeyboardType
 import com.example.esp32_mpu6050_mobile_data_collection.ui.view.AppViewModel
+import com.example.esp32_mpu6050_mobile_data_collection.ui.view.LiftCategory
+import com.example.esp32_mpu6050_mobile_data_collection.ui.view.NoiseType
+import com.example.esp32_mpu6050_mobile_data_collection.ui.view.SensorDataFormat
+import com.example.esp32_mpu6050_mobile_data_collection.ui.view.Variation
 
 @Composable
 fun SessionManagerScreen(
     appViewModel: AppViewModel,
 ) {
+    val sessionState by appViewModel.sessionDataState.collectAsState()
     Column(
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        val categoryOptions = LiftCategory.entries.map { it.toString() }
-        val noiseOptions = NoiseType.entries.map { it.toString() }
-        val variationOptions = Variation.SpeedVariation.entries.map { it.toString() }
+        val categoryOptions = LiftCategory.entries
+        val noiseOptions = NoiseType.entries
+        val speedVariationOptions = Variation.SpeedVariation.entries
+        val dataFormatOptions = SensorDataFormat.entries
 
-        var categorySelection: String by remember { mutableStateOf(categoryOptions.first()) }
-        var noiseSelection: String by remember { mutableStateOf(noiseOptions.first()) }
-        var variationSelection: String by remember { mutableStateOf(variationOptions.first()) }
-        var rpeSelection: String by remember { mutableStateOf("7") }
+        // ------------- TODO : move this to the viewmodel. --------------------
+        // ---- Type of Life ----
+        var categorySelection: LiftCategory by remember { mutableStateOf(categoryOptions.first()) }
+        var noiseSelection: NoiseType by remember { mutableStateOf(noiseOptions.first()) }
+        var speedVariationSelection: Variation.SpeedVariation by remember { mutableStateOf(speedVariationOptions.first()) }
+        var rpeSelection: Int by remember { mutableStateOf(7) }
+        // ---- Type of Data required to be colllected ----
+        var dataFormatSelection: SensorDataFormat by remember { mutableStateOf(SensorDataFormat.ALL_RAW_VALUES) }
+        // ------------- TODO : move this to the viewmodel. --------------------
 
         SessionCategorySelectionRow(categoryOptions) { selectedOption ->
             categorySelection = selectedOption
+            appViewModel.setCategory(categorySelection)
         }
 
         SessionNoiseSelectionRow(noiseOptions) { selectedOption ->
             noiseSelection = selectedOption
+            appViewModel.setNoise(noiseSelection)
         }
 
-        SessionVariationSelectionRow(variationOptions) { selectedRPE, selectedOption ->
-            variationSelection = selectedOption
+        SessionVariationSelectionRow(speedVariationOptions) { selectedOption, selectedRPE ->
+            speedVariationSelection = selectedOption
             rpeSelection = selectedRPE
+            appViewModel.setVariation(Variation(rpe = selectedRPE, selectedOption))
+        }
+
+        SessionDataFormSelectionScreen(dataFormatOptions) { selectedOption ->
+            dataFormatSelection = selectedOption
+            appViewModel.setSensorDataFormat(selectedOption)
         }
 
         // ----- Timer Functionality ------------------------------------
@@ -71,7 +91,10 @@ fun SessionManagerScreen(
 
         // Start the Timer if button pressed
         if (isStoreDataOn) {
-            if(isNewSession) {appViewModel.createNewSession() ; isNewSession = false}
+            if(isNewSession) {
+                appViewModel.createNewSession()
+                isNewSession = false
+            }
             Log.d("Database", "Collection Started")
             appViewModel.startDataSave()
         }
@@ -96,12 +119,12 @@ fun SessionManagerScreen(
 }
 
 @Composable
-fun SessionCategorySelectionRow(category: List<String>, onSelectionChange: (String) -> Unit) {
+fun SessionCategorySelectionRow(category: List<LiftCategory>, onSelectionChange: (LiftCategory) -> Unit) {
     FlowRow(
         verticalArrangement = Arrangement.Center,
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
-        var selectedOption: String by remember { mutableStateOf(category.first()) }
+        var selectedOption: LiftCategory by remember { mutableStateOf(category.first()) }
 
         // Display a button for every option
         category.forEach { label ->
@@ -115,19 +138,19 @@ fun SessionCategorySelectionRow(category: List<String>, onSelectionChange: (Stri
                     containerColor = if (selectedOption == label) Color.Green else Color.Red,
                 )
             ) {
-                Text(label)
+                Text(label.name)
             }
         }
     }
 }
 
 @Composable
-fun SessionNoiseSelectionRow(noise: List<String>, onSelectionChange: (String) -> Unit) {
+fun SessionNoiseSelectionRow(noise: List<NoiseType>, onSelectionChange: (NoiseType) -> Unit) {
     FlowRow(
         verticalArrangement = Arrangement.Center,
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
-        var selectedOption: String by remember { mutableStateOf(noise.first()) }
+        var selectedOption: NoiseType by remember { mutableStateOf(noise.first()) }
 
         // Display a button for every option
         noise.forEach { label ->
@@ -141,20 +164,20 @@ fun SessionNoiseSelectionRow(noise: List<String>, onSelectionChange: (String) ->
                     containerColor = if (selectedOption == label) Color.Green else Color.Red,
                 )
             ) {
-                Text(label)
+                Text(label.name)
             }
         }
     }
 }
 
 @Composable
-fun SessionVariationSelectionRow(variation: List<String>, onSelectionChange: (String, String) -> Unit) {
+fun SessionVariationSelectionRow(speedVariation: List<Variation.SpeedVariation>, onSelectionChange: (Variation.SpeedVariation, Int) -> Unit) {
     FlowRow(
         verticalArrangement = Arrangement.Center,
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
         var rpe by remember { mutableStateOf("") }
-        var selectedOption: String by remember { mutableStateOf(variation.first()) }
+        var selectedOption: Variation.SpeedVariation by remember { mutableStateOf(speedVariation.first()) }
 
         TextField(
             value = rpe,
@@ -163,25 +186,51 @@ fun SessionVariationSelectionRow(variation: List<String>, onSelectionChange: (St
                 val rpeInt = newVal.toIntOrNull()
                 if (rpeInt != null && rpeInt <= 10 && rpeInt >=0) {
                     rpe = newVal
-                    onSelectionChange(rpe, selectedOption)
+                    onSelectionChange(selectedOption, rpe.toInt())
                 }
             },
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
         )
 
         // Display a button for every option
-        variation.forEach { label ->
+        speedVariation.forEach { label ->
             Button(
                 onClick = {
                     selectedOption = label
-                    onSelectionChange(rpe, selectedOption)
+                    onSelectionChange(selectedOption, rpe.toInt())
                 },
                 modifier = Modifier.fillMaxWidth(),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = if (selectedOption == label) Color.Green else Color.Red,
                 )
             ) {
-                Text(label)
+                Text(label.name)
+            }
+        }
+    }
+}
+
+@Composable
+fun SessionDataFormSelectionScreen(dataFormats: List<SensorDataFormat>, onSelectionChange: (SensorDataFormat) -> Unit) {
+    FlowRow(
+        verticalArrangement = Arrangement.Center,
+        horizontalArrangement = Arrangement.SpaceBetween,
+    ) {
+        var selectedOption: SensorDataFormat by remember { mutableStateOf(dataFormats.first()) }
+
+        // Display a button for every option
+        dataFormats.forEach { label ->
+            Button(
+                onClick = {
+                    selectedOption = label
+                    onSelectionChange(selectedOption)
+                },
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = if (selectedOption == label) Color.Green else Color.Red,
+                )
+            ) {
+                Text(label.name)
             }
         }
     }
@@ -222,42 +271,3 @@ fun SessionVariationSelectionRow(variation: List<String>, onSelectionChange: (St
 //        SessionManagerScreen()
 //    }
 //}
-
-sealed class SessionType {
-    data class Lift(
-        val category: LiftCategory,
-        val variation: Variation? = null,
-    ) : SessionType()
-
-    data class Noise(
-        val type: NoiseType
-    ) : SessionType()
-}
-
-enum class LiftCategory {
-    FLOOR_PULL,
-    SQUAT,
-    HORIZONTAL_PRESS,
-    VERTICAL_PRESS,
-    WAIST_PULL,
-    GENERAL,
-}
-
-class Variation (
-    val rpe: Int,
-    val speed: SpeedVariation,
-){
-    enum class SpeedVariation{
-        EXPLOSIVE,
-        CONTROLLED,
-        SLOW,
-    }
-}
-
-enum class NoiseType {
-    LIFT,
-    NOISE,
-    ROLLS,
-    MOVEMENT,
-    UNRACKS
-}

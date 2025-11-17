@@ -5,10 +5,10 @@ import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
 import com.example.esp32_mpu6050_mobile_data_collection.data.database.entity.AccelerationEntity
-import com.example.esp32_mpu6050_mobile_data_collection.data.database.entity.SessionEntity
 import com.example.esp32_mpu6050_mobile_data_collection.data.database.entity.QuaternionEntity
+import com.example.esp32_mpu6050_mobile_data_collection.data.database.entity.SessionEntity
 
-@Database(entities = [AccelerationEntity::class, SessionEntity::class, QuaternionEntity::class], version = 7, exportSchema = false)
+@Database(entities = [AccelerationEntity::class, SessionEntity::class, QuaternionEntity::class], version = 8, exportSchema = false)
 abstract class SensorDatabase : RoomDatabase() {
 
     abstract fun accelerationDao(): AccelerationDao
