@@ -3,7 +3,10 @@ package com.example.esp32_mpu6050_mobile_data_collection.ui.screen
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -22,6 +25,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.esp32_mpu6050_mobile_data_collection.ui.theme.Esp32mpu6050mobiledatacollectionTheme
 import com.example.esp32_mpu6050_mobile_data_collection.ui.view.AppViewModel
@@ -39,28 +43,77 @@ fun SessionManagerScreen(
     Column(
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier.verticalScroll(rememberScrollState())
+        modifier = Modifier
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 12.dp, vertical = 20.dp)
     ) {
+
+        var typeOfSessionSelection: SessionType by remember { mutableStateOf(SessionType.LIFT) }
+        Row(
+
+        ) {
+            Button(
+                onClick = {
+                    typeOfSessionSelection = SessionType.LIFT
+                },
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = if (typeOfSessionSelection == SessionType.LIFT) Color.Green else Color.Gray
+                )
+            ) {
+                Text("Lift")
+            }
+            Button(
+                onClick = {
+                    typeOfSessionSelection = SessionType.NOISE
+                },
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = if (typeOfSessionSelection == SessionType.NOISE) Color.Green else Color.Gray
+                )
+            ) {
+                Text("Noise")
+            }
+            Button(
+                onClick = {
+                    typeOfSessionSelection = SessionType.LIFT_SPECIFIC_NOISE
+                },
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = if (typeOfSessionSelection == SessionType.LIFT_SPECIFIC_NOISE) Color.Green else Color.Gray
+                )
+            ) {
+                Text("Lift Specific Noise")
+            }
+        }
+
+        Spacer(modifier = Modifier.padding(vertical = 5.dp))
+
         val categoryOptions = LiftCategory.entries
         val noiseOptions = NoiseCategory.entries
         val speedVariationOptions = Variation.SpeedVariation.entries
         val dataFormatOptions = SensorDataFormat.entries
 
-        SessionCategorySelectionRow(categoryOptions) { selectedOption ->
-            appViewModel.setLiftCategory(selectedOption)
+        if (typeOfSessionSelection == SessionType.LIFT || typeOfSessionSelection == SessionType.LIFT_SPECIFIC_NOISE) {
+            SessionCategorySelectionRow(categoryOptions) { selectedOption ->
+                appViewModel.setLiftCategory(selectedOption)
+            }
+            Spacer(modifier = Modifier.padding(vertical = 5.dp))
+
+            SessionVariationSelectionRow(speedVariationOptions) { selectedOption, selectedRPE ->
+                appViewModel.setVariation(Variation(rpe = selectedRPE, selectedOption))
+            }
+            Spacer(modifier = Modifier.padding(vertical = 5.dp))
         }
 
-        SessionNoiseSelectionRow(noiseOptions) { selectedOption ->
-            appViewModel.setNoiseCategory(selectedOption)
-        }
-
-        SessionVariationSelectionRow(speedVariationOptions) { selectedOption, selectedRPE ->
-            appViewModel.setVariation(Variation(rpe = selectedRPE, selectedOption))
+        if (typeOfSessionSelection == SessionType.NOISE || typeOfSessionSelection == SessionType.LIFT_SPECIFIC_NOISE) {
+            SessionNoiseSelectionRow(noiseOptions) { selectedOption ->
+                appViewModel.setNoiseCategory(selectedOption)
+            }
+            Spacer(modifier = Modifier.padding(vertical = 5.dp))
         }
 
         SessionDataFormSelectionScreen(dataFormatOptions) { selectedOption ->
             appViewModel.setSensorDataFormat(selectedOption)
         }
+        Spacer(modifier = Modifier.padding(vertical = 5.dp))
 
         // ----- Timer Functionality ------------------------------------
         // Start the Timer if button pressed
@@ -98,7 +151,7 @@ fun SessionCategorySelectionRow(category: List<LiftCategory>, onSelectionChange:
                 },
                 modifier = Modifier.fillMaxWidth(),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = if (selectedOption == label) Color.Green else Color.Red,
+                    containerColor = if (selectedOption == label) Color.Green else Color.Gray,
                 )
             ) {
                 Text(label.name)
@@ -124,7 +177,7 @@ fun SessionNoiseSelectionRow(noise: List<NoiseCategory>, onSelectionChange: (Noi
                 },
                 modifier = Modifier.fillMaxWidth(),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = if (selectedOption == label) Color.Green else Color.Red,
+                    containerColor = if (selectedOption == label) Color.Green else Color.Gray,
                 )
             ) {
                 Text(label.name)
@@ -160,11 +213,11 @@ fun SessionVariationSelectionRow(speedVariation: List<Variation.SpeedVariation>,
             Button(
                 onClick = {
                     selectedOption = label
-                    onSelectionChange(selectedOption, rpe.toInt())
+                    onSelectionChange(selectedOption, rpe.toIntOrNull()?: 7)
                 },
                 modifier = Modifier.fillMaxWidth(),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = if (selectedOption == label) Color.Green else Color.Red,
+                    containerColor = if (selectedOption == label) Color.Green else Color.Gray,
                 )
             ) {
                 Text(label.name)
@@ -190,7 +243,7 @@ fun SessionDataFormSelectionScreen(dataFormats: List<SensorDataFormat>, onSelect
                 },
                 modifier = Modifier.fillMaxWidth(),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = if (selectedOption == label) Color.Green else Color.Red,
+                    containerColor = if (selectedOption == label) Color.Green else Color.Gray,
                 )
             ) {
                 Text(label.name)
@@ -198,6 +251,16 @@ fun SessionDataFormSelectionScreen(dataFormats: List<SensorDataFormat>, onSelect
         }
     }
 }
+
+enum class SessionType {
+    LIFT,
+    NOISE,
+    LIFT_SPECIFIC_NOISE,
+}
+
+// =====================================================================================
+// |                                 Previews
+// -------------------------------------------------------------------------------------
 
 //@Preview
 //@Composable
