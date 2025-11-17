@@ -4,7 +4,7 @@ import androidx.room.Entity
 import androidx.room.PrimaryKey
 
 @Entity(tableName = "session")
-data class AccelerationSessionEntity (
+data class SessionEntity (
     @PrimaryKey(autoGenerate = true) val sessionId: Int = 0,
     val startTime: Long,
     val endTime: Long? = null,

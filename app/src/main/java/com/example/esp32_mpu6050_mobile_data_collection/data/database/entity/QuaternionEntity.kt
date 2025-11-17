@@ -10,7 +10,7 @@ import androidx.room.PrimaryKey
     tableName = "quaternion",
     foreignKeys = [
         ForeignKey(
-            entity = AccelerationSessionEntity::class,
+            entity = SessionEntity::class,
             parentColumns = ["sessionId"],
             childColumns = ["sessionId"],
             onDelete = CASCADE, // Deleting parent deletes dependents

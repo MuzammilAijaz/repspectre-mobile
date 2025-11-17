@@ -9,7 +9,7 @@ import androidx.room.PrimaryKey
         tableName = "acceleration",
         foreignKeys = [
             ForeignKey(
-                entity = AccelerationSessionEntity::class,
+                entity = SessionEntity::class,
                 parentColumns = ["sessionId"],
                 childColumns = ["sessionId"],
                 onDelete = ForeignKey.Companion.CASCADE, // Deleting parent deletes dependents

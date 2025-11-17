@@ -1,6 +1,6 @@
 package com.example.esp32_mpu6050_mobile_data_collection.data.database
 
-import com.example.esp32_mpu6050_mobile_data_collection.data.database.entity.AccelerationSessionEntity
+import com.example.esp32_mpu6050_mobile_data_collection.data.database.entity.SessionEntity
 import com.example.esp32_mpu6050_mobile_data_collection.data.database.entity.QuaternionEntity
 import kotlinx.coroutines.flow.Flow
 
@@ -16,7 +16,7 @@ class QuaternionRepository(
     suspend fun insertItem(createEntityFromSession: (sessionId: Long) -> QuaternionEntity) {
         // Session Id remains the same
         if (newSession) {
-            sessionId = quaternionDao.insertSessionItem(AccelerationSessionEntity(startTime = System.currentTimeMillis()))
+            sessionId = quaternionDao.insertSessionItem(SessionEntity(startTime = System.currentTimeMillis()))
             newSession = false
         }
 
@@ -26,7 +26,7 @@ class QuaternionRepository(
     suspend fun insertItemBatch(createEntityListFromSession: (Long) -> List<QuaternionEntity>) {
         // Session Id remains the same
         if (newSession) {
-            sessionId = quaternionDao.insertSessionItem(AccelerationSessionEntity(startTime = System.currentTimeMillis()))
+            sessionId = quaternionDao.insertSessionItem(SessionEntity(startTime = System.currentTimeMillis()))
             newSession = false
         }
 

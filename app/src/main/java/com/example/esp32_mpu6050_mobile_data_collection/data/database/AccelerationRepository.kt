@@ -1,7 +1,7 @@
 package com.example.esp32_mpu6050_mobile_data_collection.data.database
 
 import com.example.esp32_mpu6050_mobile_data_collection.data.database.entity.AccelerationEntity
-import com.example.esp32_mpu6050_mobile_data_collection.data.database.entity.AccelerationSessionEntity
+import com.example.esp32_mpu6050_mobile_data_collection.data.database.entity.SessionEntity
 import kotlinx.coroutines.flow.Flow
 
 class AccelerationRepository(
@@ -16,7 +16,7 @@ class AccelerationRepository(
     suspend fun insertItem(createEntityFromSession: (sessionId: Long) -> AccelerationEntity) {
         // Session Id remains the same
         if (newSession) {
-            sessionId = accelerationDao.insertSessionItem(AccelerationSessionEntity(startTime = System.currentTimeMillis()))
+            sessionId = accelerationDao.insertSessionItem(SessionEntity(startTime = System.currentTimeMillis()))
             newSession = false
         }
 
