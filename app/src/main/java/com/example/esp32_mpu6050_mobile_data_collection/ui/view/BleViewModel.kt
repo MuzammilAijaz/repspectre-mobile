@@ -13,6 +13,7 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 import com.example.esp32_mpu6050_mobile_data_collection.data.AppBleRepository
 import com.example.esp32_mpu6050_mobile_data_collection.data.BleCommand
 import com.example.esp32_mpu6050_mobile_data_collection.data.SensorApplication
+import com.example.esp32_mpu6050_mobile_data_collection.data.SensorData
 import com.example.esp32_mpu6050_mobile_data_collection.service.AppService
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -108,7 +109,7 @@ class BleViewModel(
         repository.bindToService()
     }
 
-    fun exposeMessageDataFlow(): Flow<AppService.SensorData> {
+    fun exposeMessageDataFlow(): Flow<SensorData> {
         return uiState.map { it.bleState.connectionState.messageReceived }
     }
 

@@ -10,11 +10,13 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.example.esp32_mpu6050_mobile_data_collection.data.AppBleRepository
 import com.example.esp32_mpu6050_mobile_data_collection.data.SensorApplication
+import com.example.esp32_mpu6050_mobile_data_collection.data.SensorData
 import com.example.esp32_mpu6050_mobile_data_collection.data.database.AccelerationRepository
 import com.example.esp32_mpu6050_mobile_data_collection.data.database.QuaternionRepository
+import com.example.esp32_mpu6050_mobile_data_collection.data.database.RawDataRepository
 import com.example.esp32_mpu6050_mobile_data_collection.data.database.entity.AccelerationEntity
 import com.example.esp32_mpu6050_mobile_data_collection.data.database.entity.QuaternionEntity
-import com.example.esp32_mpu6050_mobile_data_collection.service.AppService
+import com.example.esp32_mpu6050_mobile_data_collection.data.database.entity.RawDataEntity
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.Flow
@@ -28,7 +30,8 @@ import kotlin.coroutines.cancellation.CancellationException
 class AppViewModel(
     private val accelerationRepository: AccelerationRepository,
     private val quaternionRepository: QuaternionRepository,
-    private val bleRepository: AppBleRepository
+    private val bleRepository: AppBleRepository,
+    private val rawDataRepository: RawDataRepository
 ) : ViewModel() {
 
     // ----- State Data Classes ------------------------------------
@@ -65,13 +68,14 @@ class AppViewModel(
                 val accelerationRepository = application.container.accelerationRepository
                 val quaternionRepository = application.container.quaternionRepository
                 val bleRepository = application.container.bleRepository
-                AppViewModel(accelerationRepository, quaternionRepository, bleRepository)
+                val rawDataRepository = application.container.rawDataRepository
+                AppViewModel(accelerationRepository, quaternionRepository, bleRepository, rawDataRepository)
             }
         }
     }
 
     // ----- Private State ------------------------------------------
-    private var messageList: MutableList<AppService.SensorData> = mutableListOf<AppService.SensorData>()
+    private var messageList: MutableList<SensorData> = mutableListOf<SensorData>()
     private val lock = Any()
 
     // =====================================================================================
@@ -90,7 +94,11 @@ class AppViewModel(
         quaternionRepository.insertItemBatch(createEntityListFromSession = createEntityListFromSession)
     }
 
-    private fun insertQuaternionValueBatch(data: List<AppService.SensorData>) {
+    private suspend fun updateRawDatabaseValuesInBatch(createEntityListFromSession: (sessionId: Long) -> List<RawDataEntity>) {
+        rawDataRepository.insertItemBatch(createEntityListFromSession = createEntityListFromSession)
+    }
+
+    private fun insertQuaternionValueBatch(data: List<SensorData.Quaternion>) {
         // Coroutine scope launches and returns immediately, as its non-blocking
         viewModelScope.launch(Dispatchers.IO) {
 
@@ -98,6 +106,20 @@ class AppViewModel(
                 data.map { item ->
                     Log.d("QuatData", "x: $x")
                     QuaternionEntity(sessionId = sessionId, x = item.x, y = item.y, z = item.z, w = item.w?:0.00f)
+                }
+            }
+        }
+    }
+
+    private fun insertRawValueBatch(data: List<SensorData.Raw>) {
+        // Coroutine scope launches and returns immediately, as its non-blocking
+        viewModelScope.launch(Dispatchers.IO) {
+
+            updateRawDatabaseValuesInBatch() { sessionId ->
+                data.map { item ->
+                    Log.d("QuatData", "x: $x")
+
+                    RawDataEntity(sessionId = sessionId, ax = item.ax, ay = item.ay, az = item.ay, gx = item.gx, gy = item.gy, gz = item.gz)
                 }
             }
         }
@@ -119,6 +141,7 @@ class AppViewModel(
         viewModelScope.launch(Dispatchers.IO) {
             quaternionRepository.stopOldSession()
             accelerationRepository.stopOldSession()
+            rawDataRepository.stopOldSession()
         }
     }
 
@@ -126,6 +149,7 @@ class AppViewModel(
         // Simply sets the flag for the creation of a new session
         quaternionRepository.createNewSession(_sessionDataState.value)
         accelerationRepository.createNewSession(_sessionDataState.value)
+        rawDataRepository.createNewSession(_sessionDataState.value)
 
         _uiState.update { it.copy(isNewSession = false) }
     }
@@ -164,10 +188,11 @@ class AppViewModel(
         viewModelScope.launch(Dispatchers.IO){
             quaternionRepository.cleanDatabase()
             accelerationRepository.cleanDatabase()
+            rawDataRepository.cleanDatabase()
         }
     }
 
-    public fun insertQuaternionValue(data: AppService.SensorData) {
+    public fun insertQuaternionValue(data: SensorData.Quaternion) {
 
         // Coroutine scope launches and returns immediately, as its non-blocking
         viewModelScope.launch(Dispatchers.IO) {
@@ -214,7 +239,7 @@ class AppViewModel(
                     // Extract sensor data from the BLE state
                     if (_uiState.value.isDataSaveModeOn) {
                         synchronized(lock) {
-                            Log.d("AppViewModelValues", "Accel: x=${state.x} y=${state.y} z=${state.z}, z=${state.w}")
+                            if(state is SensorData.Quaternion) Log.d("AppViewModelValues", "Accel: x=${state.x} y=${state.y} z=${state.z}, z=${state.w}")
                             messageList.add(state)
                         }
                     }
@@ -256,12 +281,18 @@ class AppViewModel(
     /** This function is responsible for starting the action to save the values inside
      * the ROOM database. */
     fun saveMessages() {
-        val batch: List<AppService.SensorData>
+        val batch: List<SensorData>
         synchronized(lock) {
             batch = messageList.toList()  // copy current items
             messageList.clear()           // clear safely
         }
-        insertQuaternionValueBatch(batch)
+        if (batch.isEmpty()) return;
+
+        when(batch.first()) {
+            is SensorData.Quaternion -> insertQuaternionValueBatch(batch.filterIsInstance<SensorData.Quaternion>())
+            is SensorData.Raw -> insertRawValueBatch(batch.filterIsInstance<SensorData.Raw>())
+            else -> {}
+        }
     }
 }
 

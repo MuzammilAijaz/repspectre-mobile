@@ -10,6 +10,7 @@ import android.os.Build
 import android.util.Log
 import androidx.annotation.RequiresApi
 import androidx.annotation.RequiresPermission
+import com.example.esp32_mpu6050_mobile_data_collection.data.SensorData
 import com.example.esp32_mpu6050_mobile_data_collection.service.AppService
 import com.example.esp32_mpu6050_mobile_data_collection.service.CHARACTERISTIC_UUID
 import com.example.esp32_mpu6050_mobile_data_collection.service.SERVICE_UUID
@@ -216,14 +217,39 @@ class AppBluetoothGattCallback(
     }
 
     private fun doOnRead(value: ByteArray) {
-        val buffer = ByteBuffer.wrap(value).order(ByteOrder.LITTLE_ENDIAN)
-        val x = roundOffDecimal(buffer.float)?.toFloat()?:0f
-        val y = roundOffDecimal(buffer.float)?.toFloat()?:0f
-        val z = roundOffDecimal(buffer.float)?.toFloat()?:0f
-        val w = roundOffDecimal(buffer.float)?.toFloat()?:0f
-        // TODO: DO NOT SEND AS STRING MESSAGE, REMOVE THIS STUPID
-        Log.d("BluetoothCallbackValues", "Accel: x=$x y=$y z=$z, z=$w")
+        Log.d("BluetoothCallbackNotification", "Notification size = ${value.size}")
 
-        service.updateConnection(messageReceived = AppService.SensorData(x,y,z,w))
+// ----- QUATERNIONS ----------------------------------------
+//        val buffer = ByteBuffer.wrap(value).order(ByteOrder.LITTLE_ENDIAN)
+//        val x = roundOffDecimal(buffer.float)?.toFloat()?:0f
+//        val y = roundOffDecimal(buffer.float)?.toFloat()?:0f
+//        val z = roundOffDecimal(buffer.float)?.toFloat()?:0f
+//        val w = roundOffDecimal(buffer.float)?.toFloat()?:0f
+//        Log.d("BluetoothCallbackValues", "Accel: x=$x y=$y z=$z, z=$w")
+//
+//        service.updateConnection(messageReceived = SensorData.Quaternion(x,y,z,w))
+
+// ----- Raw Data Values ------------------------------------
+        val buffer = ByteBuffer.wrap(value).order(ByteOrder.LITTLE_ENDIAN)
+        val ax = roundOffDecimal(buffer.float)?.toFloat()?:0f
+        val ay = roundOffDecimal(buffer.float)?.toFloat()?:0f
+        val az = roundOffDecimal(buffer.float)?.toFloat()?:0f
+
+        val gx = roundOffDecimal(buffer.float)?.toFloat()?:0f
+        val gy = roundOffDecimal(buffer.float)?.toFloat()?:0f
+        val gz = roundOffDecimal(buffer.float)?.toFloat()?:0f
+        Log.d("BluetoothCallbackValues", "Accel: ax=$ax ay=$ay az=$az, gx=$gx, gy=$gy, gz=$gz")
+
+        service.updateConnection(messageReceived = SensorData.Raw(ax,ay,az,gx,gy,gz))
     }
 }
+
+/* =====================================================================================
+ * |                                  WHAT I WAS DOING
+ * | -----------------------------------------------------------------------------------
+ * | - some kinda underflow is happening,
+ * | - im not getting values and doOnRead is not being called,
+ * | - i was adding rawData as a sensorData value, but i couldnt see the data getting inserted
+ * |    into the database or even no printing.
+ * |
+ * ===================================================================================== */

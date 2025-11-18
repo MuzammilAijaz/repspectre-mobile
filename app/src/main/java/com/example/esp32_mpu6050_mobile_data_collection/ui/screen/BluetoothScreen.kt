@@ -39,6 +39,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.esp32_mpu6050_mobile_data_collection.BLE.BluetoothSampleBox
 import com.example.esp32_mpu6050_mobile_data_collection.BLE.FindDevicesScreen
+import com.example.esp32_mpu6050_mobile_data_collection.data.SensorData
 import com.example.esp32_mpu6050_mobile_data_collection.raylib.RaylibActivity
 import com.example.esp32_mpu6050_mobile_data_collection.service.AppService
 import com.example.esp32_mpu6050_mobile_data_collection.service.CHARACTERISTIC_UUID
@@ -130,10 +131,18 @@ fun ConnectDeviceScreen(device: BluetoothDevice, appViewModel: AppViewModel, onD
         Text(text = "Services: ${bleState.connectionState.services.joinToString { it.uuid.toString() + " " + it.type }}")
         Text(text = "Message sent: ${bleState.connectionState.messageSent}")
 
-        val message: AppService.SensorData = bleState.connectionState.messageReceived
+        val message: SensorData = bleState.connectionState.messageReceived
 
-        Log.d("Sensor Data", "Quaternions: ${message.x} ${message.y} ${message.z} ${message.w}")
-        Text(text = "Quaternions: ${message.x} ${message.y} ${message.z} ${message.w}")
+        when(message) {
+            is SensorData.Quaternion ->  {
+                // Log.d("Sensor Data", "Quaternions: ${message.x} ${message.y} ${message.z} ${message.w}")
+                Text(text = "Quaternions: ${message.x} ${message.y} ${message.z} ${message.w}")
+            }
+            is SensorData.Raw ->  {
+                Text(text = "Raw: ${message.ax} ${message.ay} ${message.az} ${message.gx} ${message.gy} ${message.gz}")
+            }
+            else -> {}
+        }
 
         if (isStoreDataOn) {
             if(isNewSession) {appViewModel.createNewSession() ; isNewSession = false}
@@ -184,6 +193,7 @@ fun ConnectDeviceScreen(device: BluetoothDevice, appViewModel: AppViewModel, onD
         ) {
             Text(text = "Read characteristic")
         }
+
 // ----- --------------------------------------------------------// ----- --------------------------------------------------------
         // TODO: Re-Implement and Verify all these composables
         Button(

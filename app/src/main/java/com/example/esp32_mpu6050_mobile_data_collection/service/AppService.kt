@@ -27,6 +27,7 @@ import androidx.core.content.PermissionChecker
 import com.example.esp32_mpu6050_mobile_data_collection.BLE.AppBluetoothGattCallback
 import com.example.esp32_mpu6050_mobile_data_collection.R
 import com.example.esp32_mpu6050_mobile_data_collection.data.DeviceConnectionState
+import com.example.esp32_mpu6050_mobile_data_collection.data.SensorData
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -100,7 +101,7 @@ class AppService: Service() {
     // ------------------ Sensor Data Flow ------------------
     // Use SharedFlow instead of StateFLow as it holds buffer of previous values
     // instead of only maintaining the latest value.
-    private val _sensorFlow = MutableSharedFlow<AppService.SensorData>(
+    private val _sensorFlow = MutableSharedFlow<SensorData>(
         extraBufferCapacity = 512,
         onBufferOverflow = BufferOverflow.DROP_OLDEST
     )
@@ -289,12 +290,21 @@ class AppService: Service() {
         }
     }
 
-    data class SensorData(
-        val x: Float,
-        val y: Float,
-        val z: Float,
-        val w: Float? = null,
-    )
+//    data class SensorData(
+//        val x: Float,
+//        val y: Float,
+//        val z: Float,
+//        val w: Float? = null,
+//    )
+//
+//    data class FullRawIMUData(
+//        val ax: Float,
+//        val ay: Float,
+//        val az: Float,
+//        val gx: Float,
+//        val gy: Float,
+//        val gz: Float,
+//    )
 
     /* VERY IMPORTANT FUNCTION:
     * Called by the Bluetooth GATT Callback functions on every State change */
@@ -307,7 +317,9 @@ class AppService: Service() {
         messageReceived: SensorData = _bleState.value.connectionState.messageReceived
     ) {
         _bleState.update { old ->
-            Log.d("AppServiceValues", "Accel: x=${messageReceived.x} y=${messageReceived.y} z=${messageReceived.z}, z=${messageReceived.w}")
+            if (messageReceived is SensorData.Quaternion) {
+                Log.d("AppServiceValues", "Accel: x=${messageReceived.x} y=${messageReceived.y} z=${messageReceived.z}, z=${messageReceived.w}")
+            }
             old.copy(
                 connectionState = old.connectionState.copy(
                     gatt = gatt,

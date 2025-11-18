@@ -39,11 +39,11 @@ class AppBleRepository(
     val bleState: StateFlow<AppService.BleStateProvider.BleState> = _bleState.asStateFlow()
 
     // High-frequency sensor data — SharedFlow instead of StateFlow
-    private val _sensorFlow = MutableSharedFlow<AppService.SensorData>(
+    private val _sensorFlow = MutableSharedFlow<SensorData>(
         extraBufferCapacity = 512,                  // buffer so collectors can keep up
         onBufferOverflow = BufferOverflow.DROP_OLDEST // drop oldest if full
     )
-    val sensorFlow: Flow<AppService.SensorData> = _sensorFlow.asSharedFlow()
+    val sensorFlow: Flow<SensorData> = _sensorFlow.asSharedFlow()
 
     // ------------------ Binding to Service ------------------
     private val _responses = MutableSharedFlow<AppService.BleResponse>()
@@ -79,7 +79,8 @@ class AppBleRepository(
             // Collect raw sensor data (high frequency)
             CoroutineScope(Dispatchers.IO).launch {
                 mService?.sensorFlow?.collect { data ->
-                    Log.d("RepositoryValues", "Accel: x=${data.x} y=${data.y} z=${data.z}, z=${data.w}")
+                    if (data is SensorData.Quaternion) Log.d("RepositoryValues", "Accel: x=${data.x} y=${data.y} z=${data.z}, z=${data.w}")
+
                     _sensorFlow.tryEmit(data)  // non-blocking
                 }
             }
@@ -88,7 +89,7 @@ class AppBleRepository(
             CoroutineScope(Dispatchers.IO).launch {
                 _bleState.collectLatest { state ->
                     val quaternions = _bleState.value.connectionState.messageReceived
-                    updateNativeOrientation(quaternions.x, quaternions.y, quaternions.z, quaternions.w?:0f)
+                    if (quaternions is SensorData.Quaternion) updateNativeOrientation(quaternions.x, quaternions.y, quaternions.z, quaternions.w?:0f)
                 }
             }
         }
