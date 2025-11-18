@@ -23,7 +23,7 @@ class AppBluetoothGattCallback(
     private val service: AppService
 ) : BluetoothGattCallback() {
 
-    val INITIAL_MTU: Int = 242
+    val INITIAL_MTU: Int = 500
     // =====================================================================================
     // |                            GATT Connection Callbacks
     // =====================================================================================
@@ -47,8 +47,6 @@ class AppBluetoothGattCallback(
             Log.d("BluetoothCallback", "Connected -> discovering services and requesting MTU")
             // discover services
             gatt.discoverServices()
-            // request MTU (optional; request after connecting)
-            gatt.requestMtu(INITIAL_MTU)
         }
 
         else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
@@ -64,7 +62,7 @@ class AppBluetoothGattCallback(
             }
         }
 
-        service.updateConnection(gatt = gatt, connectionState = newState, mtu = INITIAL_MTU)
+        service.updateConnection(gatt = gatt, connectionState = newState)
 
         if (status != BluetoothGatt.GATT_SUCCESS) {
             // Here you should handle the error returned in status based on the constants
@@ -85,6 +83,13 @@ class AppBluetoothGattCallback(
     @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
     override fun onServicesDiscovered(gatt: BluetoothGatt, status: Int) {
         super.onServicesDiscovered(gatt, status)
+
+        // Request for MTU
+        if (status == BluetoothGatt.GATT_SUCCESS) {
+            Log.d("BluetoothCallback", "Services discovered, requesting MTU")
+            gatt.requestMtu(INITIAL_MTU)
+        }
+
         service.updateConnection(services = gatt.services)
 
         // --------- Print all Services and Characteristics --------------
