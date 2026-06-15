@@ -15,13 +15,16 @@
 *
 ********************************************************************************************/
 
+#ifdef PLATFORM_ANDROID
 #include "raymob.h"
+#else
+#include "raylib.h"
+#endif
 #include "rlgl.h"
 #include "raymath.h"        // Required for: MatrixRotateXYZ()
 
 #define RAYGUI_IMPLEMENTATION
 #include "raygui.h"
-#include "rlgl.h"
 
 // ------------------------------------------------------------------------------------
 // Private
@@ -59,6 +62,7 @@ void updateQuaternionValues(float xVal, float yVal, float zVal, float wVal) {
 // JNI functions
 // ------------------------------------------------------------------------------------
 
+#ifdef PLATFORM_ANDROID
 JNIEXPORT void JNICALL
 Java_com_example_esp32_1mpu6050_1mobile_1data_1collection_raylib_NativeBridge_updateOrientation(
         JNIEnv *env, jobject thiz, jfloat x, jfloat y, jfloat z, jfloat w) {
@@ -75,6 +79,19 @@ Java_com_example_esp32_1mpu6050_1mobile_1data_1collection_raylib_NativeBridge_up
      */
     updateQuaternionValues(y, z, x, w);
 }
+#else
+void updateOrientation(void)
+{
+    float t = GetTime();
+
+    float x = sinf(t * 0.5f) * 0.5f;
+    float y = cosf(t * 0.4f) * 0.5f;
+    float z = sinf(t * 0.3f) * 0.5f;
+    float w = cosf(t * 0.2f) * 0.8f + 0.2f;
+
+    updateQuaternionValues(y, z, x, w);
+}
+#endif
 
 // ------------------------------------------------------------------------------------
 // My Functions
@@ -104,7 +121,11 @@ int main(void)
     camera.fovy = 30.0f;                                // Camera field-of-view Y
     camera.projection = CAMERA_PERSPECTIVE;             // Camera type
 
+#ifdef PLATFORM_ANDROID
     Model model = LoadModel("modelResources/models/gltf/esp8266.glb");                  // Load model
+#else
+    Model model = LoadModel("../assets/modelResources/models/gltf/esp8266.glb");                  // Load model
+#endif
 
     Matrix baseTransform = MatrixRotateY(DEG2RAD * -90.0f);
     // Apply the initial rotation only once (combine with model's existing transform)
@@ -120,6 +141,10 @@ int main(void)
     {
         // Update
         //----------------------------------------------------------------------------------
+
+#ifndef PLATFORM_ANDROID
+        updateOrientation();
+#endif
 
         UpdateOrbitalCamera(&camera, 60.0f/60.0f);
         // UpdateCamera(&camera, CAMERA_ORBITAL);
