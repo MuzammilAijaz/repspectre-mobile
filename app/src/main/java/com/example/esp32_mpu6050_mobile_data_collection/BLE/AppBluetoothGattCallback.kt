@@ -220,27 +220,27 @@ class AppBluetoothGattCallback(
         Log.d("BluetoothCallbackNotification", "Notification size = ${value.size}")
 
 // ----- QUATERNIONS ----------------------------------------
-//        val buffer = ByteBuffer.wrap(value).order(ByteOrder.LITTLE_ENDIAN)
-//        val x = roundOffDecimal(buffer.float)?.toFloat()?:0f
-//        val y = roundOffDecimal(buffer.float)?.toFloat()?:0f
-//        val z = roundOffDecimal(buffer.float)?.toFloat()?:0f
-//        val w = roundOffDecimal(buffer.float)?.toFloat()?:0f
-//        Log.d("BluetoothCallbackValues", "Accel: x=$x y=$y z=$z, z=$w")
-//
-//        service.updateConnection(messageReceived = SensorData.Quaternion(x,y,z,w))
+        val buffer = ByteBuffer.wrap(value).order(ByteOrder.LITTLE_ENDIAN)
+        val x = roundOffDecimal(buffer.float)?.toFloat()?:0f
+        val y = roundOffDecimal(buffer.float)?.toFloat()?:0f
+        val z = roundOffDecimal(buffer.float)?.toFloat()?:0f
+        val w = roundOffDecimal(buffer.float)?.toFloat()?:0f
+        Log.d("BluetoothCallbackValues", "Accel: x=$x y=$y z=$z, z=$w")
+
+        service.updateConnection(messageReceived = SensorData.Quaternion(x,y,z,w))
 
 // ----- Raw Data Values ------------------------------------
-        val buffer = ByteBuffer.wrap(value).order(ByteOrder.LITTLE_ENDIAN)
-        val ax = roundOffDecimal(buffer.float)?.toFloat()?:0f
-        val ay = roundOffDecimal(buffer.float)?.toFloat()?:0f
-        val az = roundOffDecimal(buffer.float)?.toFloat()?:0f
-
-        val gx = roundOffDecimal(buffer.float)?.toFloat()?:0f
-        val gy = roundOffDecimal(buffer.float)?.toFloat()?:0f
-        val gz = roundOffDecimal(buffer.float)?.toFloat()?:0f
-        Log.d("BluetoothCallbackValues", "Accel: ax=$ax ay=$ay az=$az, gx=$gx, gy=$gy, gz=$gz")
-
-        service.updateConnection(messageReceived = SensorData.Raw(ax,ay,az,gx,gy,gz))
+//        val buffer = ByteBuffer.wrap(value).order(ByteOrder.LITTLE_ENDIAN)
+//        val ax = roundOffDecimal(buffer.float)?.toFloat()?:0f
+//        val ay = roundOffDecimal(buffer.float)?.toFloat()?:0f
+//        val az = roundOffDecimal(buffer.float)?.toFloat()?:0f
+//
+//        val gx = roundOffDecimal(buffer.float)?.toFloat()?:0f
+//        val gy = roundOffDecimal(buffer.float)?.toFloat()?:0f
+//        val gz = roundOffDecimal(buffer.float)?.toFloat()?:0f
+//        Log.d("BluetoothCallbackValues", "Accel: ax=$ax ay=$ay az=$az, gx=$gx, gy=$gy, gz=$gz")
+//
+//        service.updateConnection(messageReceived = SensorData.Raw(ax,ay,az,gx,gy,gz))
     }
 }
 

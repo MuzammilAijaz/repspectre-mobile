@@ -1,0 +1,60 @@
+package com.example.esp32_mpu6050_mobile_data_collection.domain.model
+
+enum class MotionStates(val requiresLiftContext: Boolean = false) {
+    REP_START(true),
+    SENSOR_JITTER,
+    SENSOR_DRIFT,
+    SENSOR_VIBRATION,
+    BARBELL_ROLLING,
+    BARBELL_MICROMOTION,
+    BARBELL_IMPACT,
+    UNRACK_TRANSIENT,
+    RERACK_TRANSIENT,
+    SETUP_MOVEMENT(true),
+    EXTERNAL_DISTURBANCE,
+    PLATFORM_VIBRATION,
+    BACKGROUND_GYM_MOTION,
+    BARBELL_STATIONARY
+}
+
+enum class LiftCategories {
+    FLOOR_PULL,
+    SQUAT,
+    PRESS_HORIZONTAL,
+    PRESS_VERTICAL,
+    UPRIGHT_PULL,
+    ROW,
+    OTHER
+}
+
+enum class Tempos {
+    NORMAL,
+    EXPLOSIVE,
+    FAST,
+    CONTROLLED,
+    SLOW_TEMPO,
+    PAUSED,
+    ECCENTRIC_EMPHASIS,
+    CONCENTRIC_EMPHASIS
+}
+
+enum class SensorDataFormats {
+    ACCELERATION_RAW,
+    GYROSCOPE_RAW,
+    MAGNETOMETER_RAW,
+    QUATERNION_ORIENTATION,
+    LINEAR_ACCELERATION,
+    FULL_IMU_RAW,
+    FULL_IMU_PROCESSED,
+    ALL_FEATURES
+}
+
+enum class DeviceStates {
+    BARBELL_STATIONARY,
+    DEVICE_CARRYING,
+    DEVICE_SETUP,
+    DEVICE_LOADING,
+    LIFT_SETUP,
+    UNRACK,
+    REP_START
+}

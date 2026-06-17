@@ -1,6 +1,5 @@
 package com.example.esp32_mpu6050_mobile_data_collection.ui.view
 
-import android.R.attr.x
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
@@ -11,19 +10,23 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 import com.example.esp32_mpu6050_mobile_data_collection.data.AppBleRepository
 import com.example.esp32_mpu6050_mobile_data_collection.data.SensorApplication
 import com.example.esp32_mpu6050_mobile_data_collection.data.SensorData
-import com.example.esp32_mpu6050_mobile_data_collection.data.database.AccelerationRepository
-import com.example.esp32_mpu6050_mobile_data_collection.data.database.QuaternionRepository
-import com.example.esp32_mpu6050_mobile_data_collection.data.database.RawDataRepository
+import com.example.esp32_mpu6050_mobile_data_collection.data.database.Repository.AccelerationRepository
+import com.example.esp32_mpu6050_mobile_data_collection.data.database.Repository.QuaternionRepository
+import com.example.esp32_mpu6050_mobile_data_collection.data.database.Repository.RawDataRepository
 import com.example.esp32_mpu6050_mobile_data_collection.data.database.entity.AccelerationEntity
 import com.example.esp32_mpu6050_mobile_data_collection.data.database.entity.QuaternionEntity
 import com.example.esp32_mpu6050_mobile_data_collection.data.database.entity.RawDataEntity
+import com.example.esp32_mpu6050_mobile_data_collection.domain.model.LiftCategories
+import com.example.esp32_mpu6050_mobile_data_collection.domain.model.MotionStates
+import com.example.esp32_mpu6050_mobile_data_collection.domain.model.SensorDataFormats
+import com.example.esp32_mpu6050_mobile_data_collection.domain.model.Tempos
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 import kotlin.coroutines.cancellation.CancellationException
 
@@ -34,14 +37,35 @@ class AppViewModel(
     private val rawDataRepository: RawDataRepository
 ) : ViewModel() {
 
-    // ----- State Data Classes ------------------------------------
-    /* This will be used as the query builder for the session type */
-    data class SessionData(
-        var liftCategory: LiftCategory = LiftCategory.FLOOR_PULL,
-        var variation: Variation = Variation(rpe = 7, speed = Variation.SpeedVariation.CONTROLLED),
-        var noiseCategory: NoiseCategory? = null,
-        var dataFormat: SensorDataFormat = SensorDataFormat.FULL_IMU_RAW,
-    )
+    sealed class SessionConfig {
+        abstract var motionState: MotionStates
+        abstract var sensorDataFormat: SensorDataFormats
+
+        data class LiftSession(
+            override var motionState: MotionStates = MotionStates.REP_START,
+            override var sensorDataFormat: SensorDataFormats = SensorDataFormats.FULL_IMU_RAW,
+            var liftCategory: LiftCategories = LiftCategories.FLOOR_PULL,
+            var rpe: Int = 7,
+            var tempo: Tempos = Tempos.NORMAL
+        ) : SessionConfig() {
+            init {
+                require(motionState.requiresLiftContext) {
+                    "motionState should be set to a MotionState which has requiresLiftContext == true"
+                }
+            }
+        }
+
+        data class NonLiftSession(
+            override var motionState: MotionStates = MotionStates.REP_START,
+            override var sensorDataFormat: SensorDataFormats = SensorDataFormats.FULL_IMU_RAW
+        ) : SessionConfig() {
+            init {
+                require(motionState.requiresLiftContext) {
+                    "motionState should be set to a MotionState which has requiresLiftContext == false"
+                }
+            }
+        }
+    }
 
     data class UiState(
         var isDataSaveModeOn: Boolean = false,
@@ -53,8 +77,8 @@ class AppViewModel(
 
     // ----- States -------------------------------------------------
     // ---- Holds Session data for query building ----
-    private val _sessionDataState = MutableStateFlow(SessionData())
-    val sessionDataState: StateFlow<SessionData> = _sessionDataState.asStateFlow()
+    private val _sessionConfigState = MutableStateFlow<SessionConfig>(SessionConfig.NonLiftSession(MotionStates.REP_START, SensorDataFormats.FULL_IMU_RAW))
+    val sessionConfigState: StateFlow<SessionConfig> = _sessionConfigState.asStateFlow()
 
     // ---- Holds ui state for UI elements ----
     private val _uiState = MutableStateFlow(UiState())
@@ -99,45 +123,31 @@ class AppViewModel(
     }
 
     private fun insertQuaternionValueBatch(data: List<SensorData.Quaternion>) {
-        // Coroutine scope launches and returns immediately, as its non-blocking
         viewModelScope.launch(Dispatchers.IO) {
-
-            updateQuatDatabaseValuesInBatch() { sessionId ->
+            updateQuatDatabaseValuesInBatch { sessionId ->
                 data.map { item ->
-                    Log.d("QuatData", "x: $x")
-                    QuaternionEntity(sessionId = sessionId, x = item.x, y = item.y, z = item.z, w = item.w?:0.00f)
+                    QuaternionEntity(sessionId = sessionId, x = item.x, y = item.y, z = item.z, w = item.w ?: 0.00f)
                 }
             }
         }
     }
 
     private fun insertRawValueBatch(data: List<SensorData.Raw>) {
-        // Coroutine scope launches and returns immediately, as its non-blocking
         viewModelScope.launch(Dispatchers.IO) {
-
-            updateRawDatabaseValuesInBatch() { sessionId ->
+            updateRawDatabaseValuesInBatch { sessionId ->
                 data.map { item ->
-                    Log.d("QuatData", "x: $x")
-
-                    RawDataEntity(sessionId = sessionId, ax = item.ax, ay = item.ay, az = item.ay, gx = item.gx, gy = item.gy, gz = item.gz)
+                    RawDataEntity(sessionId = sessionId, ax = item.ax, ay = item.ay, az = item.az, gx = item.gx, gy = item.gy, gz = item.gz)
                 }
             }
         }
     }
 
-    // =====================================================================================
-    // |                                Private Functions
-    // =====================================================================================
-
     private fun startTimer() {
-        _uiState.update { it.copy(startTime = System.currentTimeMillis(), duration = 0) }
+        val startTime = System.currentTimeMillis()
+        _uiState.value = _uiState.value.copy(startTime = startTime, duration = 0)
     }
 
-    // =====================================================================================
-    // |                                 Public Functions
-    // =====================================================================================
-
-    public fun stopOldSession() {
+    fun stopOldSession() {
         viewModelScope.launch(Dispatchers.IO) {
             quaternionRepository.stopOldSession()
             accelerationRepository.stopOldSession()
@@ -145,76 +155,92 @@ class AppViewModel(
         }
     }
 
-    public fun createNewSession() {
-        // Simply sets the flag for the creation of a new session
-        quaternionRepository.createNewSession(_sessionDataState.value)
-        accelerationRepository.createNewSession(_sessionDataState.value)
-        rawDataRepository.createNewSession(_sessionDataState.value)
-
-        _uiState.update { it.copy(isNewSession = false) }
+    fun createNewSession() {
+        quaternionRepository.createNewSession(_sessionConfigState.value)
+        accelerationRepository.createNewSession(_sessionConfigState.value)
+        rawDataRepository.createNewSession(_sessionConfigState.value)
+        _uiState.value = _uiState.value.copy(isNewSession = false)
     }
 
-    fun setLiftCategory(category: LiftCategory) {
-        _sessionDataState.update { it.copy(liftCategory = category) }
+    fun setLiftCategory(category: LiftCategories) {
+        val current = _sessionConfigState.value
+        if (current is SessionConfig.LiftSession) {
+            _sessionConfigState.value = current.copy(liftCategory = category)
+        }
     }
 
-    fun setVariation(variation: Variation) {
-        _sessionDataState.update { it.copy(variation = variation) }
+    fun setLiftTempo(tempo: Tempos) {
+        val current = _sessionConfigState.value
+        if (current is SessionConfig.LiftSession) {
+            _sessionConfigState.value = current.copy(tempo = tempo)
+        }
     }
 
-    fun setSensorDataFormat(format: SensorDataFormat) {
-        _sessionDataState.update { it.copy(dataFormat = format) }
+    fun setRPE(rpe: Int) {
+        val current = _sessionConfigState.value
+        if (current is SessionConfig.LiftSession) {
+            _sessionConfigState.value = current.copy(rpe = rpe)
+        }
     }
 
-    fun setNoiseCategory(noise: NoiseCategory?) {
-        _sessionDataState.update { it.copy(noiseCategory = noise) }
+    fun setSensorDataFormat(format: SensorDataFormats) {
+        val current = _sessionConfigState.value
+        _sessionConfigState.value = when (current) {
+            is SessionConfig.LiftSession -> current.copy(sensorDataFormat = format)
+            is SessionConfig.NonLiftSession -> current.copy(sensorDataFormat = format)
+        }
+    }
+
+    fun setMotionState(motionState: MotionStates) {
+        val current = _sessionConfigState.value
+        _sessionConfigState.value = when (current) {
+            is SessionConfig.LiftSession -> {
+                if (motionState.requiresLiftContext) {
+                    current.copy(motionState = motionState)
+                } else {
+                    SessionConfig.NonLiftSession(motionState, current.sensorDataFormat)
+                }
+            }
+            is SessionConfig.NonLiftSession -> {
+                if (motionState.requiresLiftContext) {
+                    SessionConfig.LiftSession(motionState = motionState, sensorDataFormat = current.sensorDataFormat)
+                } else {
+                    current.copy(motionState = motionState)
+                }
+            }
+        }
     }
 
     fun startCollection() {
-        _uiState.update { it.copy(isDataSaveModeOn = true, isNewSession = true) }
+        _uiState.value = _uiState.value.copy(isDataSaveModeOn = true, isNewSession = true)
         createNewSession()
         startDataSave()
     }
 
     fun stopCollection() {
-        _uiState.update { it.copy(isDataSaveModeOn = false, isNewSession = false) } // for when user stops manually
-
+        _uiState.value = _uiState.value.copy(isDataSaveModeOn = false, isNewSession = false)
         stopOldSession()
         stopDataSave()
         saveMessages()
     }
 
-    public fun cleanDatabase() {
-        viewModelScope.launch(Dispatchers.IO){
+    fun cleanDatabase() {
+        viewModelScope.launch(Dispatchers.IO) {
             quaternionRepository.cleanDatabase()
             accelerationRepository.cleanDatabase()
             rawDataRepository.cleanDatabase()
         }
     }
 
-    public fun insertQuaternionValue(data: SensorData.Quaternion) {
-
-        // Coroutine scope launches and returns immediately, as its non-blocking
+    fun insertQuaternionValue(data: SensorData.Quaternion) {
         viewModelScope.launch(Dispatchers.IO) {
-
-            updateQuatDatabaseValues() { sessionId ->
-                QuaternionEntity(sessionId = sessionId, x = data.x, y = data.y, z = data.z, w = data.w?:0.00f)
+            updateQuatDatabaseValues { sessionId ->
+                QuaternionEntity(sessionId = sessionId, x = data.x, y = data.y, z = data.z, w = data.w ?: 0.00f)
             }
         }
     }
 
-//    public fun insertAccelValue(data: AppService.SensorData) {
-//
-//        // Coroutine scope launches and returns immediately, as its non-blocking
-//        viewModelScope.launch(Dispatchers.IO) {
-//
-//            updateAccelDatabaseValues() { sessionId ->
-//                AccelerationEntity(sessionId = sessionId, x = data.x, y = data.y, z = data.z)
-//            }
-//        }
-//    }
-
-    public fun getAllQuaternions(): Flow<List<QuaternionEntity>> {
+    fun getAllQuaternions(): Flow<List<QuaternionEntity>> {
         return quaternionRepository.getAllItemsStream()
     }
 
@@ -228,10 +254,8 @@ class AppViewModel(
             Log.d("AppViewModel", "startDataSave: collector already running — ignoring duplicate start")
             return
         }
-
-        _uiState.update { it.copy(isDataSaveModeOn = true) } // just in case
+        _uiState.value = _uiState.value.copy(isDataSaveModeOn = true)
         timeHandler()
-
         dataSaveJob = viewModelScope.launch(Dispatchers.IO) {
             try {
                 // Collect BLE state updates continuously
@@ -239,7 +263,9 @@ class AppViewModel(
                     // Extract sensor data from the BLE state
                     if (_uiState.value.isDataSaveModeOn) {
                         synchronized(lock) {
-                            if(state is SensorData.Quaternion) Log.d("AppViewModelValues", "Accel: x=${state.x} y=${state.y} z=${state.z}, z=${state.w}")
+                            if (state is SensorData.Quaternion) {
+                                Log.d("AppViewModelValues", "Accel: x=${state.x} y=${state.y} z=${state.z}, w=${state.w}")
+                            }
                             messageList.add(state)
                         }
                     }
@@ -249,7 +275,7 @@ class AppViewModel(
             } catch (e: Exception) {
                 Log.e("AppViewModel", "Unexpected error collecting bleState", e)
             } finally {
-                _uiState.update { it.copy(isDataSaveModeOn = false) }
+                _uiState.value = _uiState.value.copy(isDataSaveModeOn = false)
                 dataSaveJob = null
             }
         }
@@ -260,21 +286,22 @@ class AppViewModel(
         startTimer()
 
         viewModelScope.launch(Dispatchers.IO) {
-            while(_uiState.value.isDataSaveModeOn) {
+            while (_uiState.value.isDataSaveModeOn) {
                 val currentTime = System.currentTimeMillis()
-                _uiState.update { it.copy(duration = currentTime - _uiState.value.startTime) }
-
-                if (_uiState.value.duration > 10000) { // if greater than 10 seconds, close database connection
+                val duration = currentTime - _uiState.value.startTime
+                _uiState.value = _uiState.value.copy(duration = duration)
+                if (duration > 10000) {
                     break
                 }
+                kotlinx.coroutines.delay(100) // Avoid tight loop
             }
             stopCollection()
         }
     }
 
     fun stopDataSave() {
-        _uiState.value.isDataSaveModeOn = false
-        dataSaveJob?.cancel() // stop collecting immediately
+        _uiState.value = _uiState.value.copy(isDataSaveModeOn = false)
+        dataSaveJob?.cancel()
         dataSaveJob = null
     }
 
@@ -283,8 +310,8 @@ class AppViewModel(
     fun saveMessages() {
         val batch: List<SensorData>
         synchronized(lock) {
-            batch = messageList.toList()  // copy current items
-            messageList.clear()           // clear safely
+            batch = messageList.toList()
+            messageList.clear()
         }
         if (batch.isEmpty()) return;
 
@@ -294,84 +321,4 @@ class AppViewModel(
             else -> {}
         }
     }
-}
-
-// =====================================================================================
-// |                                 Session Data Classes
-// -------------------------------------------------------------------------------------
-/* Stores the values from [SessionManagedScreen.kt], which is used to build up the query
-* for the ROOM database */
-
-//sealed class SessionType {
-//    data class Lift(
-//        val category: LiftCategory,
-//        val variation: Variation? = null,
-//    ) : SessionType()
-//
-//    data class Noise(
-//        val type: NoiseType
-//    ) : SessionType()
-//}
-
-enum class LiftCategory {
-    FLOOR_PULL,        // Deadlifts & floor-start pulls
-    SQUAT,             // All squat variations
-    PRESS_HORIZONTAL,  // Bench variations
-    PRESS_VERTICAL,    // OHP variations
-    UPRIGHT_PULL,      // Upright rows, curls, high pulls
-    ROW,               // Bent-over rows, Pendlay rows
-    OTHER              // Everything else
-}
-
-class Variation (
-    val rpe: Int,
-    val speed: SpeedVariation,
-){
-    enum class SpeedVariation{
-        NORMAL,
-        EXPLOSIVE,          // Aiming at Max acceleration (speed work)
-        FAST,               // Faster-than-normal reps
-        CONTROLLED,         // Standard tempo
-        SLOW_TEMPO,         // Intentionally slow (3–5 sec phases)
-        PAUSED,             // Pause reps (e.g., pause squat)
-        ECCENTRIC_EMPHASIS, // Slow descent, normal ascent
-        CONCENTRIC_EMPHASIS // Normal descent, slow ascent
-    }
-}
-
-enum class NoiseCategory{
-    // Sensor-level noise
-    SENSOR_JITTER,            // Random IMU jitter
-    SENSOR_DRIFT,             // Gradual orientation drift
-    SENSOR_VIBRATION,         // High-frequency vibration on the bar
-
-    // Barbell non-lift movement noise
-    BARBELL_ROLLING,          // Rolling on floor or rack
-    BARBELL_MICROMOTION,      // Slight bar shifts with no rep
-    BARBELL_IMPACT,           // Bar hitting rack or safeties
-
-    // Lift-related transitions (not actual reps)
-    UNRACK_TRANSIENT,         // Unrack acceleration spike
-    RERACK_TRANSIENT,         // Rerack acceleration spike
-    SETUP_MOVEMENT,           // Athlete adjusting grip/feet before rep
-
-    // Environment
-    EXTERNAL_DISTURBANCE,     // Someone bumps into you/rack
-    PLATFORM_VIBRATION,       // Deadlift platform shaking
-    BACKGROUND_GYM_MOTION,    // People walking, movement nearby
-
-    // Barbell state
-    BARBELL_STATIONARY        // Completely still reference state
-}
-
-// TODO : not implemented yet
-enum class SensorDataFormat {
-    ACCELERATION_RAW,         // raw accel
-    GYROSCOPE_RAW,            // raw gyro
-    MAGNETOMETER_RAW,         // optional future expansion
-    QUATERNION_ORIENTATION,   // fused orientation
-    LINEAR_ACCELERATION,      // acceleration with gravity removed
-    FULL_IMU_RAW,             // accel + gyro + (maybe mag)
-    FULL_IMU_PROCESSED,       // fused + filtered signals
-    ALL_FEATURES,             // everything including derived values (jerk, etc)
 }

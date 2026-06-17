@@ -9,7 +9,6 @@ import com.example.esp32_mpu6050_mobile_data_collection.ui.theme.Esp32mpu6050mob
 
 class MainActivity : ComponentActivity() {
 
-    @androidx.annotation.RequiresPermission(android.Manifest.permission.BLUETOOTH_CONNECT)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()

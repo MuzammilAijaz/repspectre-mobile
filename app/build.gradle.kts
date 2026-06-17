@@ -2,8 +2,7 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
-
-    id("com.google.devtools.ksp") version "2.2.10-2.0.2"
+    alias(libs.plugins.google.devtools.ksp)
 }
 
 // ------------------ Avoid conflicts of dependencies ------------------
@@ -15,12 +14,13 @@ configurations.all {
 android {
     namespace = "com.example.esp32_mpu6050_mobile_data_collection"
     compileSdk = 36
+    buildToolsVersion = "35.0.0"
+    ndkVersion = "27.0.12077973"
 
     defaultConfig {
 
         // ------------------ FOR CPP ------------------
         externalNativeBuild.cmake {
-            val nativeLibName = project.findProperty("app.native_library_name") ?: "raymob"
             cppFlags += listOf("-std=c++17", "-frtti", "-fexceptions")
             val glVersion = project.findProperty("gl.version") ?: "ES20"
             arguments(
@@ -93,17 +93,14 @@ dependencies {
     implementation(libs.androidx.material3)
 
     implementation("com.google.accompanist:accompanist-permissions:0.36.0")
-    implementation(libs.androidx.room.compiler)
 
     // ------------------ My Dependencies ------------------
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.9.4")
     implementation(libs.androidx.navigation.compose.android)
     //Room
-    val room_version = "2.8.3"
-    implementation("androidx.room:room-runtime:${room_version}")
-    // KSP for parsing annotations
-    ksp("androidx.room:room-compiler:${room_version}")
-    implementation("androidx.room:room-ktx:${room_version}")
+    implementation(libs.androidx.room.runtime)
+    implementation(libs.androidx.room.ktx)
+    ksp(libs.androidx.room.compiler)
     // -----------------------------------------------------
 
     testImplementation(libs.junit)

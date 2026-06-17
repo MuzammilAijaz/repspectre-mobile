@@ -7,26 +7,21 @@ import androidx.room.Index
 import androidx.room.PrimaryKey
 
 @Entity(
-    tableName = "raw_data",
+    tableName = "lift_context",
     foreignKeys = [
         ForeignKey(
             entity = SessionEntity::class,
             parentColumns = ["sessionId"],
             childColumns = ["sessionId"],
-            onDelete = CASCADE, // Deleting parent deletes dependents
-            onUpdate = CASCADE, // Updating parent deletes dependents
+            onDelete = CASCADE,
+            onUpdate = CASCADE
         )
     ],
     indices = [Index(value = ["sessionId"])]
 )
-data class RawDataEntity(
-    @PrimaryKey(autoGenerate = true) val id: Int = 0,
-    val sessionId: Long, // Foreign Key
-    val ax: Float,
-    val ay: Float,
-    val az: Float,
-
-    val gx: Float,
-    val gy: Float,
-    val gz: Float,
+data class LiftContextEntity(
+    @PrimaryKey val sessionId: Long,
+    val liftCategory: String,
+    val tempo: String,
+    val rpe: Int?
 )

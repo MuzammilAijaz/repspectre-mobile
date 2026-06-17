@@ -27,12 +27,12 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.esp32_mpu6050_mobile_data_collection.domain.model.LiftCategories
+import com.example.esp32_mpu6050_mobile_data_collection.domain.model.MotionStates
+import com.example.esp32_mpu6050_mobile_data_collection.domain.model.SensorDataFormats
+import com.example.esp32_mpu6050_mobile_data_collection.domain.model.Tempos
 import com.example.esp32_mpu6050_mobile_data_collection.ui.theme.Esp32mpu6050mobiledatacollectionTheme
 import com.example.esp32_mpu6050_mobile_data_collection.ui.view.AppViewModel
-import com.example.esp32_mpu6050_mobile_data_collection.ui.view.LiftCategory
-import com.example.esp32_mpu6050_mobile_data_collection.ui.view.NoiseCategory
-import com.example.esp32_mpu6050_mobile_data_collection.ui.view.SensorDataFormat
-import com.example.esp32_mpu6050_mobile_data_collection.ui.view.Variation
 
 @Composable
 fun SessionManagerScreen(
@@ -49,13 +49,9 @@ fun SessionManagerScreen(
     ) {
 
         var typeOfSessionSelection: SessionType by remember { mutableStateOf(SessionType.LIFT) }
-        Row(
-
-        ) {
+        Row {
             Button(
-                onClick = {
-                    typeOfSessionSelection = SessionType.LIFT
-                },
+                onClick = { typeOfSessionSelection = SessionType.LIFT },
                 colors = ButtonDefaults.buttonColors(
                     containerColor = if (typeOfSessionSelection == SessionType.LIFT) Color.Green else Color.Gray
                 )
@@ -63,9 +59,7 @@ fun SessionManagerScreen(
                 Text("Lift")
             }
             Button(
-                onClick = {
-                    typeOfSessionSelection = SessionType.NOISE
-                },
+                onClick = { typeOfSessionSelection = SessionType.NOISE },
                 colors = ButtonDefaults.buttonColors(
                     containerColor = if (typeOfSessionSelection == SessionType.NOISE) Color.Green else Color.Gray
                 )
@@ -73,9 +67,7 @@ fun SessionManagerScreen(
                 Text("Noise")
             }
             Button(
-                onClick = {
-                    typeOfSessionSelection = SessionType.LIFT_SPECIFIC_NOISE
-                },
+                onClick = { typeOfSessionSelection = SessionType.LIFT_SPECIFIC_NOISE },
                 colors = ButtonDefaults.buttonColors(
                     containerColor = if (typeOfSessionSelection == SessionType.LIFT_SPECIFIC_NOISE) Color.Green else Color.Gray
                 )
@@ -86,68 +78,55 @@ fun SessionManagerScreen(
 
         Spacer(modifier = Modifier.padding(vertical = 5.dp))
 
-        val categoryOptions = LiftCategory.entries
-        val noiseOptions = NoiseCategory.entries
-        val speedVariationOptions = Variation.SpeedVariation.entries
-        val dataFormatOptions = SensorDataFormat.entries
-
         if (typeOfSessionSelection == SessionType.LIFT || typeOfSessionSelection == SessionType.LIFT_SPECIFIC_NOISE) {
-            SessionCategorySelectionRow(categoryOptions) { selectedOption ->
+            SessionCategorySelectionRow(LiftCategories.entries) { selectedOption ->
                 appViewModel.setLiftCategory(selectedOption)
             }
             Spacer(modifier = Modifier.padding(vertical = 5.dp))
 
-            SessionVariationSelectionRow(speedVariationOptions) { selectedOption, selectedRPE ->
-                appViewModel.setVariation(Variation(rpe = selectedRPE, selectedOption))
+            SessionLiftContextSelectionRow(Tempos.entries) { selectedTempo, selectedRPE ->
+                appViewModel.setLiftTempo(selectedTempo)
+                appViewModel.setRPE(selectedRPE)
             }
             Spacer(modifier = Modifier.padding(vertical = 5.dp))
         }
 
-        if (typeOfSessionSelection == SessionType.NOISE || typeOfSessionSelection == SessionType.LIFT_SPECIFIC_NOISE) {
-            SessionNoiseSelectionRow(noiseOptions) { selectedOption ->
-                appViewModel.setNoiseCategory(selectedOption)
-            }
-            Spacer(modifier = Modifier.padding(vertical = 5.dp))
+        SessionMotionStateSelectionRow(MotionStates.entries) { selectedOption ->
+            appViewModel.setMotionState(selectedOption)
         }
+        Spacer(modifier = Modifier.padding(vertical = 5.dp))
 
-        SessionDataFormSelectionScreen(dataFormatOptions) { selectedOption ->
+        SessionSensorDataFormatSelectionScreen(SensorDataFormats.entries) { selectedOption ->
             appViewModel.setSensorDataFormat(selectedOption)
         }
         Spacer(modifier = Modifier.padding(vertical = 5.dp))
 
-        // ----- Timer Functionality ------------------------------------
-        // Start the Timer if button pressed
         Button(
             onClick = {
-                if (!uiState.isDataSaveModeOn) appViewModel.startCollection() else appViewModel.stopCollection()
+                if (uiState.isDataSaveModeOn) appViewModel.stopCollection() else appViewModel.startCollection()
             }
         ) {
-            if (!uiState.isDataSaveModeOn) Text("Create Session and start Collecting Data") else
-                Text("Stop Storing")
+            if (uiState.isDataSaveModeOn) Text("Stop Storing") else Text("Create Session and start Collecting Data")
         }
 
-        // Display the Time
         if (uiState.isDataSaveModeOn) {
             Text(text = "Time: ${(uiState.duration) / 1000}")
         }
-        // --------------------------------------------------------------
     }
 }
 
 @Composable
-fun SessionCategorySelectionRow(category: List<LiftCategory>, onSelectionChange: (LiftCategory) -> Unit) {
+fun SessionCategorySelectionRow(category: List<LiftCategories>, onSelectionChange: (LiftCategories) -> Unit) {
     FlowRow(
-        verticalArrangement = Arrangement.Center,
         horizontalArrangement = Arrangement.SpaceBetween,
+        verticalArrangement = Arrangement.Center
     ) {
-        var selectedOption: LiftCategory by remember { mutableStateOf(category.first()) }
-
-        // Display a button for every option
+        var selectedOption by remember { mutableStateOf(category.first()) }
         category.forEach { label ->
             Button(
                 onClick = {
                     selectedOption = label
-                    onSelectionChange(selectedOption)
+                    onSelectionChange(label)
                 },
                 modifier = Modifier.fillMaxWidth(),
                 colors = ButtonDefaults.buttonColors(
@@ -161,19 +140,17 @@ fun SessionCategorySelectionRow(category: List<LiftCategory>, onSelectionChange:
 }
 
 @Composable
-fun SessionNoiseSelectionRow(noise: List<NoiseCategory>, onSelectionChange: (NoiseCategory) -> Unit) {
+fun SessionMotionStateSelectionRow(motionState: List<MotionStates>, onSelectionChange: (MotionStates) -> Unit) {
     FlowRow(
-        verticalArrangement = Arrangement.Center,
         horizontalArrangement = Arrangement.SpaceBetween,
+        verticalArrangement = Arrangement.Center
     ) {
-        var selectedOption: NoiseCategory by remember { mutableStateOf(noise.first()) }
-
-        // Display a button for every option
-        noise.forEach { label ->
+        var selectedOption by remember { mutableStateOf(motionState.first()) }
+        motionState.forEach { label ->
             Button(
                 onClick = {
                     selectedOption = label
-                    onSelectionChange(selectedOption)
+                    onSelectionChange(label)
                 },
                 modifier = Modifier.fillMaxWidth(),
                 colors = ButtonDefaults.buttonColors(
@@ -187,33 +164,32 @@ fun SessionNoiseSelectionRow(noise: List<NoiseCategory>, onSelectionChange: (Noi
 }
 
 @Composable
-fun SessionVariationSelectionRow(speedVariation: List<Variation.SpeedVariation>, onSelectionChange: (Variation.SpeedVariation, Int) -> Unit) {
+fun SessionLiftContextSelectionRow(tempo: List<Tempos>, onSelectionChange: (Tempos, Int) -> Unit) {
     FlowRow(
-        verticalArrangement = Arrangement.Center,
         horizontalArrangement = Arrangement.SpaceBetween,
+        verticalArrangement = Arrangement.Center
     ) {
         var rpe by remember { mutableStateOf("") }
-        var selectedOption: Variation.SpeedVariation by remember { mutableStateOf(speedVariation.first()) }
+        var selectedOption by remember { mutableStateOf(tempo.first()) }
 
         TextField(
             value = rpe,
             label = { Text("Enter RPE") },
             onValueChange = { newVal ->
                 val rpeInt = newVal.toIntOrNull()
-                if (rpeInt != null && rpeInt <= 10 && rpeInt >=0) {
+                if (rpeInt != null && rpeInt <= 10 && rpeInt >= 0) {
                     rpe = newVal
-                    onSelectionChange(selectedOption, rpe.toIntOrNull()?: 7) // CONSTANT : 7 is the default rpe
+                    onSelectionChange(selectedOption, rpe.toIntOrNull() ?: 7)
                 }
             },
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
         )
 
-        // Display a button for every option
-        speedVariation.forEach { label ->
+        tempo.forEach { label ->
             Button(
                 onClick = {
                     selectedOption = label
-                    onSelectionChange(selectedOption, rpe.toIntOrNull()?: 7)
+                    onSelectionChange(label, rpe.toIntOrNull() ?: 7)
                 },
                 modifier = Modifier.fillMaxWidth(),
                 colors = ButtonDefaults.buttonColors(
@@ -227,19 +203,17 @@ fun SessionVariationSelectionRow(speedVariation: List<Variation.SpeedVariation>,
 }
 
 @Composable
-fun SessionDataFormSelectionScreen(dataFormats: List<SensorDataFormat>, onSelectionChange: (SensorDataFormat) -> Unit) {
+fun SessionSensorDataFormatSelectionScreen(dataFormats: List<SensorDataFormats>, onSelectionChange: (SensorDataFormats) -> Unit) {
     FlowRow(
-        verticalArrangement = Arrangement.Center,
         horizontalArrangement = Arrangement.SpaceBetween,
+        verticalArrangement = Arrangement.Center
     ) {
-        var selectedOption: SensorDataFormat by remember { mutableStateOf(dataFormats.first()) }
-
-        // Display a button for every option
+        var selectedOption by remember { mutableStateOf(dataFormats.first()) }
         dataFormats.forEach { label ->
             Button(
                 onClick = {
                     selectedOption = label
-                    onSelectionChange(selectedOption)
+                    onSelectionChange(label)
                 },
                 modifier = Modifier.fillMaxWidth(),
                 colors = ButtonDefaults.buttonColors(
@@ -258,42 +232,10 @@ enum class SessionType {
     LIFT_SPECIFIC_NOISE,
 }
 
-// =====================================================================================
-// |                                 Previews
-// -------------------------------------------------------------------------------------
-
-//@Preview
-//@Composable
-//fun SessionPurposeSelectionRowPreview() {
-//    Esp32mpu6050mobiledatacollectionTheme{
-//        val options = LiftCategory.entries.map { it.toString() }
-//        SessionCategorySelectionRow(options, {})
-//    }
-//}
-//
-//@Preview
-//@Composable
-//fun SessionNoiseSelectionRowPreview() {
-//    Esp32mpu6050mobiledatacollectionTheme{
-//        val options = NoiseCategory.entries.map { it.toString() }
-//        SessionNoiseSelectionRow(options)
-//    }
-//}
-//
-//@Preview
-//@Composable
-//fun SessionVariationSelectionRowPreview() {
-//    Esp32mpu6050mobiledatacollectionTheme{
-//        val options = Variation.SpeedVariation.entries.map { it.toString() }
-//        SessionVariationSelectionRow(options)
-//    }
-//}
-//
-//
 @Preview
 @Composable
 fun SessionManagerPreview() {
-    Esp32mpu6050mobiledatacollectionTheme{
+    Esp32mpu6050mobiledatacollectionTheme {
         val viewModel: AppViewModel = viewModel(factory = AppViewModel.Factory)
         SessionManagerScreen(viewModel)
     }
