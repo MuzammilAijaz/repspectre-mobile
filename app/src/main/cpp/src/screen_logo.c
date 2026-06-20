@@ -37,6 +37,22 @@ static float time = 0.0f;
 
 static RenderTexture2D logoTarget;
 
+//--------------------------------------------------------------
+
+#if DEBUGMODE
+void ReloadShader(void)
+{
+    UnloadShader(glitchShader);
+
+    glitchShader = LoadShader(
+        0,
+        "resources/shaders/glitchShader.fs"
+    );
+
+    timeLoc = GetShaderLocation(glitchShader, "time");
+}
+#endif
+
 //----------------------------------------------------------------------------------
 // Logo Screen Functions Definition
 //----------------------------------------------------------------------------------
@@ -82,6 +98,13 @@ void UpdateLogoScreen(void)
         &time,
         SHADER_UNIFORM_FLOAT
     );
+
+#if DEBUGMODE
+    if (IsKeyPressed(KEY_R))
+    {
+        ReloadShader();
+    }
+#endif
 
     if (state == 0)                 // State 0: Top-left square corner blink logic
     {
