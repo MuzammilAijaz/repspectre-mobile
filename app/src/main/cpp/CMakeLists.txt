@@ -51,7 +51,7 @@ else()
     project(repspectre_pc C)
     set(BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
     add_subdirectory(deps/raylib)
-    add_executable(app src/main.c)
+    add_executable(app src/main.c src/screen_logo.c src/screen_visualizer.c)
     target_compile_definitions(app PRIVATE PLATFORM_DESKTOP)
     target_include_directories(app PRIVATE deps/raylib/src deps/raymob)
 
