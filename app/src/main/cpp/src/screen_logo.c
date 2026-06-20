@@ -5,6 +5,10 @@
 #include "raylib.h"
 #include "screens.h"
 
+//--------------------------------------------------------------
+#define DEBUGMODE 1
+//--------------------------------------------------------------
+
 //----------------------------------------------------------------------------------
 // Module Variables Definition (local)
 //----------------------------------------------------------------------------------
@@ -115,6 +119,7 @@ void UpdateLogoScreen(void)
                 framesCounter = 0;
             }
         }
+#if !DEBUGMODE
         else    // When all letters have appeared, just fade out everything
         {
             if (framesCounter > 200)
@@ -128,6 +133,7 @@ void UpdateLogoScreen(void)
                 }
             }
         }
+#endif
     }
 }
 
