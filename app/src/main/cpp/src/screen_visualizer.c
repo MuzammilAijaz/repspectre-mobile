@@ -138,19 +138,18 @@ void InitVisualizerScreen(void)
 
     // GUI
 
-    GuiSetStyle(DEFAULT, TEXT_SIZE, 20);
-    GuiSetStyle(BUTTON, TEXT_ALIGNMENT, TEXT_ALIGN_CENTER);
-    // GuiSetStyle(BUTTON, TEXT_PADDING, 10);
     GuiSetStyle(BUTTON, BORDER_WIDTH, 2);
 
-    GuiSetStyle(BUTTON, BASE_COLOR_NORMAL, 0x2f2f2fff);
-    GuiSetStyle(BUTTON, BASE_COLOR_FOCUSED, 0x3a3a3aff);
-    GuiSetStyle(BUTTON, BASE_COLOR_PRESSED, 0x1f1f1fff);
+    GuiSetStyle(BUTTON, BASE_COLOR_NORMAL,   0x2a3a4cff); // deep blue-gray
+    GuiSetStyle(BUTTON, BASE_COLOR_FOCUSED,  0x3a5670ff); // lighter steel blue
+    GuiSetStyle(BUTTON, BASE_COLOR_PRESSED,  0x1a2533ff); // deep shadow blue
 
-    GuiSetStyle(BUTTON, TEXT_COLOR_NORMAL, 0xffffffff);
-    GuiSetStyle(BUTTON, TEXT_COLOR_FOCUSED, 0xffffffff);
-    GuiSetStyle(BUTTON, TEXT_COLOR_PRESSED, 0xaaaaaaff);
+    GuiSetStyle(BUTTON, BORDER_COLOR_NORMAL, 0x101820ff); // near-black blue
+    GuiSetStyle(BUTTON, BORDER_COLOR_FOCUSED,0x66a3ccff); // PS2-ish glow edge
 
+    GuiSetStyle(BUTTON, TEXT_COLOR_NORMAL,   0xe6eef7ff); // soft white-blue
+    GuiSetStyle(BUTTON, TEXT_COLOR_FOCUSED,  0xffffffff);
+    GuiSetStyle(BUTTON, TEXT_COLOR_PRESSED,  0xb8c7d9ff); // muted press text
     // Screen State
 
     framesCounter = 0;
