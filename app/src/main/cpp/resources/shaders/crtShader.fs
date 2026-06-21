@@ -6,6 +6,7 @@ in vec4 fragColor;
 uniform sampler2D texture0;
 uniform float time;
 uniform vec2 resolution;
+uniform float control_warp;
 
 out vec4 finalColor;
 
@@ -16,7 +17,7 @@ vec2 curve(vec2 uv)
 	uv *= 1.1;
 
 	uv.x *= 1.0 + pow(abs(uv.y)/5.0, 2.0);
-	uv.y *= 1.0 + pow(abs(uv.x)/3.0, 2.0);
+	uv.y *= 1.0 + pow(abs(uv.x)/control_warp, 2.0);
 
 	uv = (uv/2.0) + 0.5;
 	// uv = uv*0.92 + 0.04;

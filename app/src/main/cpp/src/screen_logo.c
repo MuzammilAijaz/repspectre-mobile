@@ -34,9 +34,13 @@ static float alpha = 1.0f;         // Useful for fading
 //----- Shader & Texture ---------------------------------------
 
 static Shader glitchShader = { 0 };
+
 static Shader crtShader = { 0 };
+float controlCrtWarp = 1.5f;
 
 static int timeLoc = -1;
+static int warpLoc = -1;
+
 static float time = 0.0f;
 
 static RenderTexture2D logoTarget;
@@ -106,6 +110,14 @@ void InitLogoScreen(void)
         SHADER_UNIFORM_VEC2
     );
 
+    warpLoc = GetShaderLocation(crtShader, "control_warp");
+    SetShaderValue(
+        crtShader,
+        warpLoc,
+        &controlCrtWarp,
+        SHADER_UNIFORM_FLOAT
+    );
+
 }
 
 // Logo Screen Update logic
@@ -113,12 +125,23 @@ void UpdateLogoScreen(void)
 {
     time += GetFrameTime();
 
+    //----- Update Shaders------------------------------------------
+
     SetShaderValue(
         crtShader,
         timeLoc,
         &time,
         SHADER_UNIFORM_FLOAT
     );
+
+    SetShaderValue(
+            crtShader,
+            warpLoc,
+            &controlCrtWarp,
+            SHADER_UNIFORM_FLOAT
+            );
+
+    //--------------------------------------------------------------
 
 #if DEBUGMODE
     if (IsKeyPressed(KEY_R))
@@ -130,6 +153,8 @@ void UpdateLogoScreen(void)
     if (state == 0)                 // State 0: Top-left square corner blink logic
     {
         framesCounter++;
+
+        controlCrtWarp += 0.01;
 
         if (framesCounter == 80)
         {
