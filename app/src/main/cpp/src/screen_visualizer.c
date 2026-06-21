@@ -48,6 +48,7 @@ static float time = 0.0f;
 static RenderTexture2D visualizerTarget;
 // Sub window
 static RenderTexture2D subViewport;
+static Rectangle subViewportWindow = { 0 };
 
 Rectangle subViewportWindow = {
     VIRTUAL_WIDTH * 0.1f,
@@ -142,6 +143,13 @@ void InitVisualizerScreen(void)
         VIRTUAL_WIDTH * 0.3f,
         VIRTUAL_HEIGHT * 0.4f
     );
+
+    subViewportWindow = (Rectangle){
+        (visualizerTarget.texture.width  - subViewport.texture.width) * 0.5f,
+        (visualizerTarget.texture.height - subViewport.texture.height) * 0.25f,
+        (float)subViewport.texture.width,
+        (float)subViewport.texture.height
+    };
 
     // Disable texture filtering ; for pixely affect
     SetTextureFilter(visualizerTarget.texture, TEXTURE_FILTER_POINT);
