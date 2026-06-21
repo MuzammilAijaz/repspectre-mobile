@@ -50,12 +50,10 @@ static RenderTexture2D visualizerTarget;
 static RenderTexture2D subViewport;
 static Rectangle subViewportWindow = { 0 };
 
-Rectangle subViewportWindow = {
-    VIRTUAL_WIDTH * 0.1f,
-    VIRTUAL_HEIGHT * 0.1f,
-    VIRTUAL_WIDTH * 0.6f,
-    VIRTUAL_HEIGHT * 0.5f
-};
+//----- Core ---------------------------------------------------
+
+static bool isConnected = false;
+static bool isConnectionRequested = false;
 
 //--------------------------------------------------------------
 
@@ -120,6 +118,16 @@ void updateOrientation(void)
 }
 #endif
 
+#ifdef PLATFORM_ANDROID
+void requestBluetoothConnection() {
+    // TODO: JNI version
+}
+#else
+void requestBluetoothConnection() {
+    // TODO: debug version
+}
+#endif
+
 //----------------------------------------------------------------------------------
 // Title Screen Functions Definition
 //----------------------------------------------------------------------------------
@@ -127,6 +135,24 @@ void updateOrientation(void)
 // Title Screen Initialization logic
 void InitVisualizerScreen(void)
 {
+
+    // GUI
+
+    GuiSetStyle(DEFAULT, TEXT_SIZE, 20);
+    GuiSetStyle(BUTTON, TEXT_ALIGNMENT, TEXT_ALIGN_CENTER);
+    // GuiSetStyle(BUTTON, TEXT_PADDING, 10);
+    GuiSetStyle(BUTTON, BORDER_WIDTH, 2);
+
+    GuiSetStyle(BUTTON, BASE_COLOR_NORMAL, 0x2f2f2fff);
+    GuiSetStyle(BUTTON, BASE_COLOR_FOCUSED, 0x3a3a3aff);
+    GuiSetStyle(BUTTON, BASE_COLOR_PRESSED, 0x1f1f1fff);
+
+    GuiSetStyle(BUTTON, TEXT_COLOR_NORMAL, 0xffffffff);
+    GuiSetStyle(BUTTON, TEXT_COLOR_FOCUSED, 0xffffffff);
+    GuiSetStyle(BUTTON, TEXT_COLOR_PRESSED, 0xaaaaaaff);
+
+    // Screen State
+
     framesCounter = 0;
     finishScreen = 0;
 
@@ -221,14 +247,22 @@ int UpdateVisualizerScreen(void)
 
     //--------------------------------------------------------------
 
-    // Press enter or tap to change to GAMEPLAY screen
+#if DEBUGMODE
     if (IsKeyPressed(KEY_ENTER))
     {
         finishScreen = 1;   // LOGO
     }
+    // "connect" with microcontroller and start receiving values
+    if (IsKeyPressed(KEY_C))
+    {
+        isConnected = true;
+    }
+#endif
 
 #ifndef PLATFORM_ANDROID
-    updateOrientation();
+    if (isConnected) {
+        updateOrientation();
+    }
 #endif
 
     UpdateOrbitalCamera(&camera, 60.0f/60.0f);
@@ -305,6 +339,30 @@ void DrawVisualizerScreen(void)
     if (GuiButton((Rectangle){4.0f, 4.0f, 100.0f, 40.0f}, "Back")) {
         EndDrawing();
         exit(1);
+    }
+
+    if (!isConnected) {
+        int fontSize = 24;
+        const char* text = "Please connect with the device";
+        int textWidth = MeasureText(text, fontSize);
+        int x = (VIRTUAL_WIDTH - textWidth) / 2;
+        DrawText(text, x, VIRTUAL_HEIGHT * 0.5, fontSize, BLACK);
+
+        const char* text2 = "Connect with device";
+        int text2Width = MeasureText(text2, fontSize);
+        int x2 = (VIRTUAL_WIDTH - text2Width) / 2;
+
+        if (!isConnectionRequested) {
+            if (GuiButton((Rectangle){ x2, VIRTUAL_HEIGHT * 0.6f, 200, 40 }, text2)) {
+                requestBluetoothConnection();
+                isConnectionRequested = true;
+            }
+        }
+        else { // acts as a disabled button
+            // FIXME: text consistency
+            DrawRectangle(x2, VIRTUAL_HEIGHT * 0.6f, 200, 40, DARKGRAY);
+            DrawText(text2, x2, VIRTUAL_HEIGHT * 0.6f + 10, fontSize, GRAY);
+        }
     }
 }
 
