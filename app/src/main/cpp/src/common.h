@@ -17,8 +17,9 @@ extern "C" {            // Prevents name mangling of functions
  *
  */
 
-#define VIRTUAL_WIDTH  420
-#define VIRTUAL_HEIGHT 1033
+// Ratio: 2.16
+#define VIRTUAL_WIDTH  390
+#define VIRTUAL_HEIGHT 844
 
 #ifdef __cplusplus
 }
