@@ -21,6 +21,10 @@ extern "C" {            // Prevents name mangling of functions
 #define VIRTUAL_WIDTH  390
 #define VIRTUAL_HEIGHT 844
 
+//--------------------------------------------------------------
+#define DEBUGMODE 1
+//--------------------------------------------------------------
+
 #ifdef __cplusplus
 }
 #endif
