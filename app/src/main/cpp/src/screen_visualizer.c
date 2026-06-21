@@ -11,6 +11,7 @@
 // #include "rlgl.h"
 #include "raymath.h"        // Required for: MatrixRotateXYZ()
 #include "screens.h"
+#include "common.h"
 
 #include "raygui.h"
 
@@ -34,6 +35,18 @@ static volatile Quaternion quaternion = {
     0.f,
 };
 bool isQuaternionInitialized = false;
+
+//----- Shader -------------------------------------------------
+
+static Shader crtShader = { 0 };
+static float controlCrtWarp = 3.0f;
+static int timeLoc = -1;
+static int warpLoc = -1;
+static float time = 0.0f;
+
+static RenderTexture2D visualizerTarget;
+
+//--------------------------------------------------------------
 
 void UpdateOrbitalCamera(Camera *camera, float deltaTime);
 
@@ -106,7 +119,10 @@ void InitVisualizerScreen(void)
     camera.position = (Vector3){ 0.0f, 15.0f, -34.0f };// Camera position perspective
     camera.target = (Vector3){ 0.0f, 0.0f, 0.0f };      // Camera looking at point
     camera.up = (Vector3){ 0.0f, 1.0f, 0.0f };          // Camera up vector (rotation towards target)
-    camera.fovy = 30.0f;                                // Camera field-of-view Y
+
+    float aspect = (float)VIRTUAL_WIDTH / (float)VIRTUAL_HEIGHT;
+    camera.fovy = 25.0f / aspect;                                // Camera field-of-view Y
+
     camera.projection = CAMERA_PERSPECTIVE;             // Camera type
 
 #ifdef PLATFORM_ANDROID
@@ -118,11 +134,65 @@ void InitVisualizerScreen(void)
     baseTransform = MatrixRotateY(DEG2RAD * -90.0f);
     // Apply the initial rotation only once (combine with model's existing transform)
     model.transform = baseTransform;
+
+    // Shader & Texture
+
+    crtShader = LoadShader( 0, "resources/shaders/crtShader.fs");
+    timeLoc = GetShaderLocation(crtShader, "time");
+    visualizerTarget = LoadRenderTexture(
+        VIRTUAL_WIDTH,
+        VIRTUAL_HEIGHT
+    );
+
+    // Disable texture filtering ; for pixely affect
+    SetTextureFilter(visualizerTarget.texture, TEXTURE_FILTER_POINT);
+
+    // Init Shaders
+
+    int resolutionLoc = GetShaderLocation(crtShader, "resolution");
+    Vector2 resolution = {
+        (float)VIRTUAL_WIDTH,
+        (float)VIRTUAL_HEIGHT
+    };
+    SetShaderValue(
+        crtShader,
+        resolutionLoc,
+        &resolution,
+        SHADER_UNIFORM_VEC2
+    );
+
+    warpLoc = GetShaderLocation(crtShader, "control_warp");
+    SetShaderValue(
+        crtShader,
+        warpLoc,
+        &controlCrtWarp,
+        SHADER_UNIFORM_FLOAT
+    );
 }
 
 // Title Screen Update logic
 int UpdateVisualizerScreen(void)
 {
+    time += GetFrameTime();
+
+    //----- Update Shaders------------------------------------------
+
+    SetShaderValue(
+        crtShader,
+        timeLoc,
+        &time,
+        SHADER_UNIFORM_FLOAT
+    );
+
+    SetShaderValue(
+            crtShader,
+            warpLoc,
+            &controlCrtWarp,
+            SHADER_UNIFORM_FLOAT
+            );
+
+    //--------------------------------------------------------------
+
     // Press enter or tap to change to GAMEPLAY screen
     if (IsKeyPressed(KEY_ENTER))
     {
@@ -150,6 +220,10 @@ void DrawVisualizerScreen(void)
 {
     // Draw
     //----------------------------------------------------------------------------------
+    BeginTextureMode(visualizerTarget);
+
+    ClearBackground(WHITE);
+
     // Draw 3D model (recommended to draw 3D always before 2D)
     BeginMode3D(camera);
 
@@ -173,6 +247,28 @@ void DrawVisualizerScreen(void)
         EndDrawing();
         exit(1);
     }
+
+    EndTextureMode();
+
+    //--------------------------------------------------------------
+
+    BeginShaderMode(crtShader);
+
+    // upscale to actual screen
+    DrawTexturePro(
+            visualizerTarget.texture,
+            (Rectangle){ 0, 0,
+            (float)visualizerTarget.texture.width,
+            -(float)visualizerTarget.texture.height },
+            (Rectangle){ 0, 0,
+            (float)GetScreenWidth(),
+            (float)GetScreenHeight() },
+            (Vector2){0, 0},
+            0,
+            WHITE
+            );
+
+    EndShaderMode();
 }
 
 // Title Screen Unload logic

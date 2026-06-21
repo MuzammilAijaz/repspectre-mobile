@@ -19,7 +19,10 @@
 Font font = { 0 };
 
 //----- Screen ------------------------------------------------------------------------
-GameScreen currentScreen = LOGO;
+// GameScreen currentScreen = LOGO;
+// DEBUG: for quick testing
+GameScreen currentScreen = VISUALIZER;
+
 // Required variables to manage screen transitions (fade-in, fade-out)
 static float transAlpha = 0.0f;
 static bool onTransition = false;
@@ -70,8 +73,12 @@ int main(void)
     GuiLoadStyleDefault(); // reset style after drawing
 
     // Setup and init first screen
-    currentScreen = LOGO;
-    InitLogoScreen();
+    // currentScreen = LOGO;
+    // InitLogoScreen();
+
+    // DEBUG: for quick testing
+    currentScreen = VISUALIZER;
+    InitVisualizerScreen();
 
     SetTargetFPS(60);               // Set our game to run at 60 frames-per-second
     //--------------------------------------------------------------------------------------
