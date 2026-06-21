@@ -93,6 +93,7 @@ int main(void)
     switch (currentScreen)
     {
         case LOGO: UnloadLogoScreen(); break;
+        case VISUALIZER: UnloadVisualizerScreen(); break;
         default: break;
     }
     //UnloadTexture(texture); // Unload texture data
