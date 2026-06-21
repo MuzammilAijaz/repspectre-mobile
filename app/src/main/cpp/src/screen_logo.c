@@ -154,9 +154,9 @@ void UpdateLogoScreen(void)
     {
         framesCounter++;
 
-        controlCrtWarp += 0.01;
+        controlCrtWarp += 0.02;
 
-        if (framesCounter == 80)
+        if (framesCounter == 40)
         {
             state = 1;
             framesCounter = 0;      // Reset counter... will be used later...
@@ -182,7 +182,7 @@ void UpdateLogoScreen(void)
 
         if (lettersCount < 10)
         {
-            if (framesCounter/12)   // Every 12 frames, one more letter!
+            if (framesCounter/5)   // Every 5 frames, one more letter!
             {
                 lettersCount++;
                 framesCounter = 0;
