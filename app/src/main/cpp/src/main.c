@@ -11,6 +11,7 @@
 #include "rlgl.h"
 #include "raymath.h"        // Required for: MatrixRotateXYZ()
 #include "screens.h"
+#include "common.h"
 
 #define RAYGUI_IMPLEMENTATION
 #include "raygui.h"
@@ -37,8 +38,30 @@ int main(void)
 {
     // Initialization
     //--------------------------------------------------------------------------------------
-    const int screenWidth = 480;
-    const int screenHeight = 1066;
+    const int screenWidth = VIRTUAL_WIDTH;
+    const int screenHeight = VIRTUAL_HEIGHT;
+
+    // ========================================================
+    // DEBUG:
+    // -------------------- iPhone / Apple --------------------
+    // const int screenWidth  = 375;  const int screenHeight = 667;   // iPhone SE (1st/2nd gen) ~16:9 (1.78)
+    // const int screenWidth  = 390;  const int screenHeight = 844;   // iPhone 12 / 13 / 14 ~19.5:9 (2.16)
+    // const int screenWidth  = 428;  const int screenHeight = 926;   // iPhone 12/13/14 Pro Max ~19.5:9 (2.16)
+    // const int screenWidth  = 430;  const int screenHeight = 932;   // iPhone 14/15 Pro Max ~19.5:9 (2.17)
+    // -------------------- Google Pixel --------------------
+    // const int screenWidth  = 393;  const int screenHeight = 851;   // Pixel 5 / Pixel 6 class ~19:9 (2.17)
+    // -------------------- Samsung Galaxy --------------------
+    // const int screenWidth  = 360;  const int screenHeight = 780;   // Budget Samsung Android ~19.5:9
+    // const int screenWidth  = 412;  const int screenHeight = 915;   // Galaxy S21 / S22 / S23 ~19.8:9 (2.22)
+    // const int screenWidth  = 480;  const int screenHeight = 960;   // Older tall Android ~18:9 (2.0)
+    // -------------------- Experimental / Stress Tests --------------------
+    // const int screenWidth  = 480;  const int screenHeight = 800;   // 16:10 (1.6) compressed height test
+    // const int screenWidth  = 480;  const int screenHeight = 1000;  // mid tall stress test (~2.08)
+    // const int screenWidth  = 480;  const int screenHeight = 1200;  // ultra tall UI stress test (~2.5)
+    // -------------------- Wide / fallback desktop-ish --------------------
+    // const int screenWidth  = 540;  const int screenHeight = 960;   // wide Android tablet-ish feel
+    // const int screenWidth  = 720;  const int screenHeight = 1280;  // HD baseline (1.78)
+    // ========================================================
 
     //SetConfigFlags(FLAG_MSAA_4X_HINT | FLAG_WINDOW_HIGHDPI);
     InitWindow(screenWidth, screenHeight, "raylib [models] example - yaw pitch roll");
