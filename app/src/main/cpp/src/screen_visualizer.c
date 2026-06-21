@@ -8,7 +8,7 @@
 #include "raylib.h"
 #endif
 
-// #include "rlgl.h"
+#include "rlgl.h"
 #include "raymath.h"        // Required for: MatrixRotateXYZ()
 #include "screens.h"
 #include "common.h"
@@ -44,7 +44,17 @@ static int timeLoc = -1;
 static int warpLoc = -1;
 static float time = 0.0f;
 
+// Main screen
 static RenderTexture2D visualizerTarget;
+// Sub window
+static RenderTexture2D subViewport;
+
+Rectangle subViewportWindow = {
+    VIRTUAL_WIDTH * 0.1f,
+    VIRTUAL_HEIGHT * 0.1f,
+    VIRTUAL_WIDTH * 0.6f,
+    VIRTUAL_HEIGHT * 0.5f
+};
 
 //--------------------------------------------------------------
 
@@ -97,12 +107,15 @@ void updateOrientation(void)
 {
     float t = GetTime();
 
-    float x = sinf(t * 0.5f) * 0.5f;
-    float y = cosf(t * 0.4f) * 0.5f;
-    float z = sinf(t * 0.3f) * 0.5f;
-    float w = cosf(t * 0.2f) * 0.8f + 0.2f;
+    float x = sinf(t * 0.23f) * 0.2f;
+    float y = sinf(t * 0.19f) * -0.2f;
+    float z = sinf(t * 0.17f) * 0.2f;
 
-    updateQuaternionValues(y, z, x, w);
+    Quaternion q = (Quaternion){ x, y, z, 1.0f };
+
+    QuaternionNormalize(q);
+
+    updateQuaternionValues(q.x, q.y, q.z, q.w);
 }
 #endif
 
@@ -116,25 +129,6 @@ void InitVisualizerScreen(void)
     framesCounter = 0;
     finishScreen = 0;
 
-    camera.position = (Vector3){ 0.0f, 15.0f, -34.0f };// Camera position perspective
-    camera.target = (Vector3){ 0.0f, 0.0f, 0.0f };      // Camera looking at point
-    camera.up = (Vector3){ 0.0f, 1.0f, 0.0f };          // Camera up vector (rotation towards target)
-
-    float aspect = (float)VIRTUAL_WIDTH / (float)VIRTUAL_HEIGHT;
-    camera.fovy = 25.0f / aspect;                                // Camera field-of-view Y
-
-    camera.projection = CAMERA_PERSPECTIVE;             // Camera type
-
-#ifdef PLATFORM_ANDROID
-    model = LoadModel("modelResources/models/gltf/esp8266.glb");                  // Load model
-#else
-    model = LoadModel("../assets/modelResources/models/gltf/esp8266.glb");                  // Load model
-#endif
-
-    baseTransform = MatrixRotateY(DEG2RAD * -90.0f);
-    // Apply the initial rotation only once (combine with model's existing transform)
-    model.transform = baseTransform;
-
     // Shader & Texture
 
     crtShader = LoadShader( 0, "resources/shaders/crtShader.fs");
@@ -142,6 +136,11 @@ void InitVisualizerScreen(void)
     visualizerTarget = LoadRenderTexture(
         VIRTUAL_WIDTH,
         VIRTUAL_HEIGHT
+    );
+
+    subViewport = LoadRenderTexture(
+        VIRTUAL_WIDTH * 0.3f,
+        VIRTUAL_HEIGHT * 0.4f
     );
 
     // Disable texture filtering ; for pixely affect
@@ -168,6 +167,27 @@ void InitVisualizerScreen(void)
         &controlCrtWarp,
         SHADER_UNIFORM_FLOAT
     );
+
+    //----- --------------------------------------------------------
+
+    camera.position = (Vector3){ 0.0f, 15.0f, -34.0f };// Camera position perspective
+    camera.target = (Vector3){ 0.0f, 0.0f, 0.0f };      // Camera looking at point
+    camera.up = (Vector3){ 0.0f, 1.0f, 0.0f };          // Camera up vector (rotation towards target)
+
+    float aspect = (float)subViewport.texture.width / (float)subViewport.texture.height;
+    camera.fovy = 10.0f / aspect;                                // Camera field-of-view Y
+
+    camera.projection = CAMERA_PERSPECTIVE;             // Camera type
+
+#ifdef PLATFORM_ANDROID
+    model = LoadModel("modelResources/models/gltf/esp8266.glb");                  // Load model
+#else
+    model = LoadModel("../assets/modelResources/models/gltf/esp8266.glb");                  // Load model
+#endif
+
+    baseTransform = MatrixRotateY(DEG2RAD * -90.0f);
+    // Apply the initial rotation only once (combine with model's existing transform)
+    model.transform = baseTransform;
 }
 
 // Title Screen Update logic
@@ -220,55 +240,64 @@ void DrawVisualizerScreen(void)
 {
     // Draw
     //----------------------------------------------------------------------------------
-    BeginTextureMode(visualizerTarget);
-
+    BeginTextureMode(subViewport);
     ClearBackground(WHITE);
-
-    // Draw 3D model (recommended to draw 3D always before 2D)
     BeginMode3D(camera);
 
     DrawModel(model, (Vector3){ 0.0f, 0.0f, 0.0f }, 1.0f, WHITE);   // Draw 3d model with texture
-    DrawGrid(10, 1.5f);
+    // DrawGrid(10, 1.5f);
 
     EndMode3D();
+    EndTextureMode();
 
-    //        // Draw controls info
-    //        DrawRectangle(30, 370, 260, 70, Fade(GREEN, 0.5f));
-    //        DrawRectangleLines(30, 370, 260, 70, Fade(DARKGREEN, 0.5f));
-    //        DrawText("Pitch controlled with: KEY_UP / KEY_DOWN", 40, 380, 10, DARKGRAY);
-    //        DrawText("Roll controlled with: KEY_LEFT / KEY_RIGHT", 40, 400, 10, DARKGRAY);
-    //        DrawText("Yaw controlled with: KEY_A / KEY_S", 40, 420, 10, DARKGRAY);
-    //
-    //        DrawText("(c) WWI Plane Model created by GiaHanLam", screenWidth - 240, screenHeight - 20, 10, DARKGRAY);
-    sprintf(textMessage, "Value: %f, %f, %f, %f", quaternion.x, quaternion.y, quaternion.z, quaternion.w);
-    DrawText(textMessage, 20, 20, 20, WHITE);
+    //--------------------------------------------------------------
 
-    if (GuiButton((Rectangle){4.0f, 4.0f, 100.0f, 40.0f}, "Back")) {
-        EndDrawing();
-        exit(1);
-    }
+    rlDrawRenderBatchActive(); // RESEARCH:
+
+    //--------------------------------------------------------------
+
+    BeginTextureMode(visualizerTarget);
+    ClearBackground(WHITE);
+
+    // draw 3D sub window
+    DrawTexturePro(
+        subViewport.texture,
+        (Rectangle){0, 0, (float)subViewport.texture.width, -(float)subViewport.texture.height},
+        subViewportWindow,
+        (Vector2){0, 0},
+        0,
+        WHITE
+    );
 
     EndTextureMode();
 
     //--------------------------------------------------------------
 
+    rlDrawRenderBatchActive(); // RESEARCH:
+
+    //--------------------------------------------------------------
+
     BeginShaderMode(crtShader);
 
-    // upscale to actual screen
     DrawTexturePro(
-            visualizerTarget.texture,
-            (Rectangle){ 0, 0,
-            (float)visualizerTarget.texture.width,
-            -(float)visualizerTarget.texture.height },
-            (Rectangle){ 0, 0,
-            (float)GetScreenWidth(),
-            (float)GetScreenHeight() },
-            (Vector2){0, 0},
-            0,
-            WHITE
-            );
+        visualizerTarget.texture,
+        (Rectangle){0,0, (float)visualizerTarget.texture.width, -(float)visualizerTarget.texture.height},
+        (Rectangle){0,0, (float)GetScreenWidth(), (float)GetScreenHeight()},
+        (Vector2){0,0},
+        0,
+        WHITE
+    );
 
     EndShaderMode();
+
+    //----- GUI ----------------------------------------------------
+    sprintf(textMessage, "Value: %f, %f, %f, %f", quaternion.x, quaternion.y, quaternion.z, quaternion.w);
+    DrawText(textMessage, 20, 20, 20, BLACK);
+
+    if (GuiButton((Rectangle){4.0f, 4.0f, 100.0f, 40.0f}, "Back")) {
+        EndDrawing();
+        exit(1);
+    }
 }
 
 // Title Screen Unload logic
