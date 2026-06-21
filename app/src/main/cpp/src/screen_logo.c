@@ -4,6 +4,8 @@
 
 #include "raylib.h"
 #include "screens.h"
+#include <math.h>
+#include "common.h"
 
 //--------------------------------------------------------------
 #define DEBUGMODE 1
@@ -32,6 +34,8 @@ static float alpha = 1.0f;         // Useful for fading
 //----- Shader & Texture ---------------------------------------
 
 static Shader glitchShader = { 0 };
+static Shader crtShader = { 0 };
+
 static int timeLoc = -1;
 static float time = 0.0f;
 
@@ -42,14 +46,14 @@ static RenderTexture2D logoTarget;
 #if DEBUGMODE
 void ReloadShader(void)
 {
-    UnloadShader(glitchShader);
+    UnloadShader(crtShader);
 
-    glitchShader = LoadShader(
+    crtShader = LoadShader(
         0,
-        "resources/shaders/glitchShader.fs"
+        "resources/shaders/crtShader.fs"
     );
 
-    timeLoc = GetShaderLocation(glitchShader, "time");
+    timeLoc = GetShaderLocation(crtShader, "time");
 }
 #endif
 
@@ -64,9 +68,6 @@ void InitLogoScreen(void)
     framesCounter = 0;
     lettersCount = 0;
 
-    logoPositionX = GetScreenWidth()/2 - 128;
-    logoPositionY = GetScreenHeight()/2 - 128;
-
     topSideRecWidth = 16;
     leftSideRecHeight = 16;
     bottomSideRecWidth = 16;
@@ -77,14 +78,34 @@ void InitLogoScreen(void)
 
     // Shader & Texture
     
-    glitchShader = LoadShader( 0, "resources/shaders/glitchShader.fs");
+    crtShader = LoadShader( 0, "resources/shaders/crtShader.fs");
 
-    timeLoc = GetShaderLocation(glitchShader, "time");
+    timeLoc = GetShaderLocation(crtShader, "time");
 
     logoTarget = LoadRenderTexture(
-        GetScreenWidth(),
-        GetScreenHeight()
+        VIRTUAL_WIDTH,
+        VIRTUAL_HEIGHT
     );
+
+    logoPositionX = VIRTUAL_WIDTH / 2 - 128;
+    logoPositionY = VIRTUAL_HEIGHT / 2 - 128;
+    TraceLog(LOG_INFO, "logoPos = %d, %d", logoPositionX, logoPositionY);
+
+    // Disable texture filtering ; for pixely affect
+    SetTextureFilter(logoTarget.texture, TEXTURE_FILTER_POINT);
+
+    int resolutionLoc = GetShaderLocation(crtShader, "resolution");
+    Vector2 resolution = {
+        (float)VIRTUAL_WIDTH,
+        (float)VIRTUAL_HEIGHT
+    };
+    SetShaderValue(
+        crtShader,
+        resolutionLoc,
+        &resolution,
+        SHADER_UNIFORM_VEC2
+    );
+
 }
 
 // Logo Screen Update logic
@@ -93,7 +114,7 @@ void UpdateLogoScreen(void)
     time += GetFrameTime();
 
     SetShaderValue(
-        glitchShader,
+        crtShader,
         timeLoc,
         &time,
         SHADER_UNIFORM_FLOAT
@@ -130,7 +151,7 @@ void UpdateLogoScreen(void)
 
         if (bottomSideRecWidth == 256) state = 3;
     }
-    else if (state == 3)            // State 3: "raylib" text-write animation logic
+    else if (state == 3)            // State 3: "repspectre" text-write animation logic
     {
         framesCounter++;
 
@@ -165,7 +186,7 @@ void DrawLogoScreen(void)
 {
     BeginTextureMode(logoTarget);
 
-    ClearBackground(BLANK);
+    ClearBackground(WHITE);
 
     if (state == 0)         // Draw blinking top-left square corner
     {
@@ -184,7 +205,7 @@ void DrawLogoScreen(void)
         DrawRectangle(logoPositionX + 240, logoPositionY, 16, rightSideRecHeight, BLACK);
         DrawRectangle(logoPositionX, logoPositionY + 240, bottomSideRecWidth, 16, BLACK);
     }
-    else if (state == 3)    // Draw "raylib" text-write animation + "powered by"
+    else if (state == 3)    // Draw "repspectre" text-write animation + "powered by"
     {
         DrawRectangle(logoPositionX, logoPositionY, topSideRecWidth, 16, Fade(BLACK, alpha));
         DrawRectangle(logoPositionX, logoPositionY + 16, 16, leftSideRecHeight - 32, Fade(BLACK, alpha));
@@ -194,7 +215,7 @@ void DrawLogoScreen(void)
 
         DrawRectangle(logoPositionX + 16, logoPositionY + 16, 224, 224, Fade(RAYWHITE, alpha));
 
-        DrawText(TextSubtext("raylib", 0, lettersCount), logoPositionX + 84, logoPositionY + 176, 50, Fade(BLACK, alpha));
+        DrawText(TextSubtext("repspectre", 0, lettersCount), logoPositionX + 40, logoPositionY + leftSideRecHeight/2, 30, Fade(BLACK, alpha));
 
         if (framesCounter > 20) DrawText("powered by", logoPositionX, logoPositionY - 27, 20, Fade(DARKGRAY, alpha));
     }
@@ -203,17 +224,19 @@ void DrawLogoScreen(void)
 
     //--------------------------------------------------------------
 
-    BeginShaderMode(glitchShader);
+    BeginShaderMode(crtShader);
 
-    DrawTextureRec(
+    // upscale to actual screen
+    DrawTexturePro(
         logoTarget.texture,
-        (Rectangle){
-        0,
-        0,
+        (Rectangle){ 0, 0,
         (float)logoTarget.texture.width,
-        -(float)logoTarget.texture.height
-        },
+        -(float)logoTarget.texture.height },
+        (Rectangle){ 0, 0,
+        (float)GetScreenWidth(),
+        (float)GetScreenHeight() },
         (Vector2){0, 0},
+        0,
         WHITE
     );
 
@@ -224,7 +247,7 @@ void DrawLogoScreen(void)
 void UnloadLogoScreen(void)
 {
     // Unload LOGO screen variables here!
-    UnloadShader(glitchShader);
+    UnloadShader(crtShader);
 }
 
 // Logo Screen should finish?
