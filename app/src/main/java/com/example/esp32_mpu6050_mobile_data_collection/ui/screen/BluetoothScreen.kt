@@ -134,6 +134,12 @@ fun ConnectDeviceScreen(device: BluetoothDevice, appViewModel: AppViewModel, onD
         val message: SensorData = bleState.connectionState.messageReceived
 
         when(message) {
+            is SensorData.FullIMURaw -> {
+                Text(text = "Accel: ${message.ax}, ${message.ay}, ${message.az}")
+                Text(text = "Gyro: ${message.gx}, ${message.gy}, ${message.gz}")
+                Text(text = "Quat: ${message.qx}, ${message.qy}, ${message.qz}, ${message.qw}")
+                Text(text = "Timestamp: ${message.timestampUs} us")
+            }
             is SensorData.Quaternion ->  {
                 // Log.d("Sensor Data", "Quaternions: ${message.x} ${message.y} ${message.z} ${message.w}")
                 Text(text = "Quaternions: ${message.x} ${message.y} ${message.z} ${message.w}")
