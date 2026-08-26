@@ -251,6 +251,31 @@ class AppViewModel(
         }
     }
 
+    fun getCurrentLiftCategory(): LiftCategories {
+        val config = _sessionConfigState.value
+        check(config is SessionConfig.LiftSession) {
+            "getCurrentLiftCategory() called when session is not a LiftSession"
+        }
+        return config.liftCategory
+    }
+
+    fun getCurrentLiftTempo(): Tempos {
+        val config = _sessionConfigState.value
+        check(config is SessionConfig.LiftSession) {
+            "getCurrentLiftTempo() called when session is not a LiftSession"
+        }
+        return config.tempo
+    }
+
+    fun getCurrentRpe(): Int {
+        val config = _sessionConfigState.value
+        check(config is SessionConfig.LiftSession) {
+            "getCurrentRpe() called when session is not a LiftSession"
+        }
+        return config.rpe
+    }
+
+
     fun startCollection() {
         _uiState.value = _uiState.value.copy(isDataSaveModeOn = true, isNewSession = true)
         createNewSession()
