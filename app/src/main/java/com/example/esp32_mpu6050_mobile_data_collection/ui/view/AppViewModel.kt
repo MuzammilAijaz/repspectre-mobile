@@ -11,9 +11,11 @@ import com.example.esp32_mpu6050_mobile_data_collection.data.AppBleRepository
 import com.example.esp32_mpu6050_mobile_data_collection.data.SensorApplication
 import com.example.esp32_mpu6050_mobile_data_collection.data.SensorData
 import com.example.esp32_mpu6050_mobile_data_collection.data.database.Repository.AccelerationRepository
+import com.example.esp32_mpu6050_mobile_data_collection.data.database.Repository.FullIMURawRepository
 import com.example.esp32_mpu6050_mobile_data_collection.data.database.Repository.QuaternionRepository
 import com.example.esp32_mpu6050_mobile_data_collection.data.database.Repository.RawDataRepository
 import com.example.esp32_mpu6050_mobile_data_collection.data.database.entity.AccelerationEntity
+import com.example.esp32_mpu6050_mobile_data_collection.data.database.entity.FullIMURawEntity
 import com.example.esp32_mpu6050_mobile_data_collection.data.database.entity.QuaternionEntity
 import com.example.esp32_mpu6050_mobile_data_collection.data.database.entity.RawDataEntity
 import com.example.esp32_mpu6050_mobile_data_collection.domain.model.LiftCategories
@@ -34,7 +36,8 @@ class AppViewModel(
     private val accelerationRepository: AccelerationRepository,
     private val quaternionRepository: QuaternionRepository,
     private val bleRepository: AppBleRepository,
-    private val rawDataRepository: RawDataRepository
+    private val rawDataRepository: RawDataRepository,
+    private val fullIMURawRepository: FullIMURawRepository
 ) : ViewModel() {
 
     sealed class SessionConfig {
@@ -93,7 +96,8 @@ class AppViewModel(
                 val quaternionRepository = application.container.quaternionRepository
                 val bleRepository = application.container.bleRepository
                 val rawDataRepository = application.container.rawDataRepository
-                AppViewModel(accelerationRepository, quaternionRepository, bleRepository, rawDataRepository)
+                val fullIMURawRepository = application.container.fullIMURawRepository
+                AppViewModel(accelerationRepository, quaternionRepository, bleRepository, rawDataRepository, fullIMURawRepository)
             }
         }
     }
@@ -122,6 +126,10 @@ class AppViewModel(
         rawDataRepository.insertItemBatch(createEntityListFromSession = createEntityListFromSession)
     }
 
+    private suspend fun updateFullIMURawDatabaseValuesInBatch(createEntityListFromSession: (sessionId: Long) -> List<FullIMURawEntity>) {
+        fullIMURawRepository.insertItemBatch(createEntityListFromSession = createEntityListFromSession)
+    }
+
     private fun insertQuaternionValueBatch(data: List<SensorData.Quaternion>) {
         viewModelScope.launch(Dispatchers.IO) {
             updateQuatDatabaseValuesInBatch { sessionId ->
@@ -142,6 +150,29 @@ class AppViewModel(
         }
     }
 
+    private fun insertFullIMURawValueBatch(data: List<SensorData.FullIMURaw>) {
+        viewModelScope.launch(Dispatchers.IO) {
+            updateFullIMURawDatabaseValuesInBatch { sessionId ->
+                data.map { item ->
+                    FullIMURawEntity(
+                        sessionId = sessionId,
+                        ax = item.ax,
+                        ay = item.ay,
+                        az = item.az,
+                        gx = item.gx,
+                        gy = item.gy,
+                        gz = item.gz,
+                        qx = item.qx,
+                        qy = item.qy,
+                        qz = item.qz,
+                        qw = item.qw,
+                        timestampUs = item.timestampUs
+                    )
+                }
+            }
+        }
+    }
+
     private fun startTimer() {
         val startTime = System.currentTimeMillis()
         _uiState.value = _uiState.value.copy(startTime = startTime, duration = 0)
@@ -152,6 +183,7 @@ class AppViewModel(
             quaternionRepository.stopOldSession()
             accelerationRepository.stopOldSession()
             rawDataRepository.stopOldSession()
+            fullIMURawRepository.stopOldSession()
         }
     }
 
@@ -159,6 +191,7 @@ class AppViewModel(
         quaternionRepository.createNewSession(_sessionConfigState.value)
         accelerationRepository.createNewSession(_sessionConfigState.value)
         rawDataRepository.createNewSession(_sessionConfigState.value)
+        fullIMURawRepository.createNewSession(_sessionConfigState.value)
         _uiState.value = _uiState.value.copy(isNewSession = false)
     }
 
@@ -229,6 +262,7 @@ class AppViewModel(
             quaternionRepository.cleanDatabase()
             accelerationRepository.cleanDatabase()
             rawDataRepository.cleanDatabase()
+            fullIMURawRepository.cleanDatabase()
         }
     }
 
@@ -265,6 +299,9 @@ class AppViewModel(
                         synchronized(lock) {
                             if (state is SensorData.Quaternion) {
                                 Log.d("AppViewModelValues", "Accel: x=${state.x} y=${state.y} z=${state.z}, w=${state.w}")
+                            }
+                            if (state is SensorData.FullIMURaw) {
+                                Log.d("AppViewModelValues", "FullIMURaw: ax=${state.ax} ay=${state.ay} az=${state.az} gx=${state.gx} gy=${state.gy} gz=${state.gz} qx=${state.qx} qy=${state.qy} qz=${state.qz} qw=${state.qw} ts=${state.timestampUs}")
                             }
                             messageList.add(state)
                         }
@@ -316,6 +353,7 @@ class AppViewModel(
         if (batch.isEmpty()) return;
 
         when(batch.first()) {
+            is SensorData.FullIMURaw -> insertFullIMURawValueBatch(batch.filterIsInstance<SensorData.FullIMURaw>())
             is SensorData.Quaternion -> insertQuaternionValueBatch(batch.filterIsInstance<SensorData.Quaternion>())
             is SensorData.Raw -> insertRawValueBatch(batch.filterIsInstance<SensorData.Raw>())
             else -> {}
