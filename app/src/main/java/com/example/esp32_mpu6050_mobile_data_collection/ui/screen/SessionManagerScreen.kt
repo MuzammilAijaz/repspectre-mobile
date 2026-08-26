@@ -1,5 +1,6 @@
 package com.example.esp32_mpu6050_mobile_data_collection.ui.screen
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
@@ -79,11 +80,13 @@ fun SessionManagerScreen(
         Spacer(modifier = Modifier.padding(vertical = 5.dp))
 
         if (typeOfSessionSelection == SessionType.LIFT || typeOfSessionSelection == SessionType.LIFT_SPECIFIC_NOISE) {
+            Text(text = "Lift Categories", modifier = Modifier.fillMaxWidth().background(Color.LightGray).padding(8.dp))
             SessionCategorySelectionRow(LiftCategories.entries) { selectedOption ->
                 appViewModel.setLiftCategory(selectedOption)
             }
             Spacer(modifier = Modifier.padding(vertical = 5.dp))
 
+            Text(text = "Lift Context", modifier = Modifier.fillMaxWidth().background(Color.LightGray).padding(8.dp))
             SessionLiftContextSelectionRow(Tempos.entries) { selectedTempo, selectedRPE ->
                 appViewModel.setLiftTempo(selectedTempo)
                 appViewModel.setRPE(selectedRPE)
@@ -91,11 +94,30 @@ fun SessionManagerScreen(
             Spacer(modifier = Modifier.padding(vertical = 5.dp))
         }
 
-        SessionMotionStateSelectionRow(MotionStates.entries) { selectedOption ->
-            appViewModel.setMotionState(selectedOption)
+        if (typeOfSessionSelection == SessionType.NOISE) {
+            Text(
+                text = "Motion States",
+                modifier = Modifier.fillMaxWidth().background(Color.LightGray).padding(8.dp)
+            )
+            // Noise sessions DO NOT require lift context
+            SessionMotionStateSelectionRow(
+                MotionStates.entries.filter { !it.requiresLiftContext }
+            ) { selectedOption ->
+                appViewModel.setMotionState(selectedOption)
+            }
+            Spacer(modifier = Modifier.padding(vertical = 5.dp))
         }
-        Spacer(modifier = Modifier.padding(vertical = 5.dp))
+        else if (typeOfSessionSelection == SessionType.LIFT_SPECIFIC_NOISE){
+            // only display states which require lift context if its lift session
+            SessionMotionStateSelectionRow(
+                MotionStates.entries.filter { it.requiresLiftContext }
+            ) { selectedOption ->
+                appViewModel.setMotionState(selectedOption)
+            }
+            Spacer(modifier = Modifier.padding(vertical = 5.dp))
+        }
 
+        Text(text = "Data Formats", modifier = Modifier.fillMaxWidth().background(Color.LightGray).padding(8.dp))
         SessionSensorDataFormatSelectionScreen(SensorDataFormats.entries) { selectedOption ->
             appViewModel.setSensorDataFormat(selectedOption)
         }
