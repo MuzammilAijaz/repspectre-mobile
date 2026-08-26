@@ -11,6 +11,7 @@ package com.example.esp32_mpu6050_mobile_data_collection.data
 
 import android.content.Context
 import com.example.esp32_mpu6050_mobile_data_collection.data.database.Repository.AccelerationRepository
+import com.example.esp32_mpu6050_mobile_data_collection.data.database.Repository.FullIMURawRepository
 import com.example.esp32_mpu6050_mobile_data_collection.data.database.Repository.QuaternionRepository
 import com.example.esp32_mpu6050_mobile_data_collection.data.database.Repository.RawDataRepository
 import com.example.esp32_mpu6050_mobile_data_collection.data.database.SensorDatabase
@@ -31,5 +32,9 @@ class AppContainer(private val context: Context) {
 
     val rawDataRepository: RawDataRepository by lazy {
         RawDataRepository(SensorDatabase.getDatabase(context).rawDataDao())
+    }
+
+    val fullIMURawRepository: FullIMURawRepository by lazy {
+        FullIMURawRepository(SensorDatabase.getDatabase(context).fullIMURawDao())
     }
 }
