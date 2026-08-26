@@ -52,6 +52,8 @@ class AppViewModel(
             var tempo: Tempos = Tempos.NORMAL
         ) : SessionConfig() {
             init {
+                // REFACTOR: implement better type system (i.e LiftMotionState : MotionState) so i dont
+                // have to do this check
                 require(motionState.requiresLiftContext) {
                     "motionState should be set to a MotionState which has requiresLiftContext == true"
                 }
@@ -59,11 +61,13 @@ class AppViewModel(
         }
 
         data class NonLiftSession(
-            override var motionState: MotionStates = MotionStates.REP_START,
+            override var motionState: MotionStates = MotionStates.SENSOR_DRIFT,
             override var sensorDataFormat: SensorDataFormats = SensorDataFormats.FULL_IMU_RAW
         ) : SessionConfig() {
             init {
-                require(motionState.requiresLiftContext) {
+                // REFACTOR: implement better type system (i.e LiftMotionState : MotionState) so i don't
+                // have to do this check
+                require(!motionState.requiresLiftContext) {
                     "motionState should be set to a MotionState which has requiresLiftContext == false"
                 }
             }
@@ -80,7 +84,7 @@ class AppViewModel(
 
     // ----- States -------------------------------------------------
     // ---- Holds Session data for query building ----
-    private val _sessionConfigState = MutableStateFlow<SessionConfig>(SessionConfig.NonLiftSession(MotionStates.REP_START, SensorDataFormats.FULL_IMU_RAW))
+    private val _sessionConfigState = MutableStateFlow<SessionConfig>(SessionConfig.NonLiftSession(MotionStates.SENSOR_DRIFT, SensorDataFormats.FULL_IMU_RAW))
     val sessionConfigState: StateFlow<SessionConfig> = _sessionConfigState.asStateFlow()
 
     // ---- Holds ui state for UI elements ----
