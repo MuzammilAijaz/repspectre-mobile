@@ -220,14 +220,14 @@ class AppBluetoothGattCallback(
         Log.d("BluetoothCallbackNotification", "Notification size = ${value.size}")
 
 // ----- QUATERNIONS ----------------------------------------
-        val buffer = ByteBuffer.wrap(value).order(ByteOrder.LITTLE_ENDIAN)
-        val x = roundOffDecimal(buffer.float)?.toFloat()?:0f
-        val y = roundOffDecimal(buffer.float)?.toFloat()?:0f
-        val z = roundOffDecimal(buffer.float)?.toFloat()?:0f
-        val w = roundOffDecimal(buffer.float)?.toFloat()?:0f
-        Log.d("BluetoothCallbackValues", "Accel: x=$x y=$y z=$z, z=$w")
-
-        service.updateConnection(messageReceived = SensorData.Quaternion(x,y,z,w))
+//        val buffer = ByteBuffer.wrap(value).order(ByteOrder.LITTLE_ENDIAN)
+//        val x = roundOffDecimal(buffer.float)?.toFloat()?:0f
+//        val y = roundOffDecimal(buffer.float)?.toFloat()?:0f
+//        val z = roundOffDecimal(buffer.float)?.toFloat()?:0f
+//        val w = roundOffDecimal(buffer.float)?.toFloat()?:0f
+//        Log.d("BluetoothCallbackValues", "Accel: x=$x y=$y z=$z, z=$w")
+//
+//        service.updateConnection(messageReceived = SensorData.Quaternion(x,y,z,w))
 
 // ----- Raw Data Values ------------------------------------
 //        val buffer = ByteBuffer.wrap(value).order(ByteOrder.LITTLE_ENDIAN)
@@ -241,6 +241,44 @@ class AppBluetoothGattCallback(
 //        Log.d("BluetoothCallbackValues", "Accel: ax=$ax ay=$ay az=$az, gx=$gx, gy=$gy, gz=$gz")
 //
 //        service.updateConnection(messageReceived = SensorData.Raw(ax,ay,az,gx,gy,gz))
+
+// ----- Full Raw IMU Values --------------------------------
+        val buffer = ByteBuffer.wrap(value).order(ByteOrder.LITTLE_ENDIAN)
+
+        val accelX = buffer.short
+        val accelY = buffer.short
+        val accelZ = buffer.short
+
+        val gyroX = buffer.short
+        val gyroY = buffer.short
+        val gyroZ = buffer.short
+
+        val quaternionX = buffer.float
+        val quaternionY = buffer.float
+        val quaternionZ = buffer.float
+        val quaternionW = buffer.float
+
+        val timestampUs = buffer.int.toLong() and 0xFFFFFFFFL
+
+        val data = SensorData.FullIMURaw(
+            ax = accelX,
+            ay = accelY,
+            az = accelZ,
+
+            gx = gyroX,
+            gy = gyroY,
+            gz = gyroZ,
+
+            qx = quaternionX,
+            qy = quaternionY,
+            qz = quaternionZ,
+            qw = quaternionW,
+
+            timestampUs = timestampUs
+        )
+
+    service.updateConnection(messageReceived = data)
+
     }
 }
 

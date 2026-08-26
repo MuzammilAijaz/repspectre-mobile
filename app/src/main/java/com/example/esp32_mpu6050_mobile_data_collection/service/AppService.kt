@@ -320,6 +320,9 @@ class AppService: Service() {
             if (messageReceived is SensorData.Quaternion) {
                 Log.d("AppServiceValues", "Accel: x=${messageReceived.x} y=${messageReceived.y} z=${messageReceived.z}, z=${messageReceived.w}")
             }
+            if (messageReceived is SensorData.FullIMURaw) {
+                Log.d("AppServiceValues", "FullIMURaw: ax=${messageReceived.ax} ay=${messageReceived.ay} az=${messageReceived.az} gx=${messageReceived.gx} gy=${messageReceived.gy} gz=${messageReceived.gz} qx=${messageReceived.qx} qy=${messageReceived.qy} qz=${messageReceived.qz} qw=${messageReceived.qw} ts=${messageReceived.timestampUs}")
+            }
             old.copy(
                 connectionState = old.connectionState.copy(
                     gatt = gatt,
