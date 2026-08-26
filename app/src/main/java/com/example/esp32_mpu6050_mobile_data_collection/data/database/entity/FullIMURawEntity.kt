@@ -1,0 +1,39 @@
+package com.example.esp32_mpu6050_mobile_data_collection.data.database.entity
+
+import androidx.room.Entity
+import androidx.room.ForeignKey
+import androidx.room.ForeignKey.Companion.CASCADE
+import androidx.room.Index
+import androidx.room.PrimaryKey
+
+@Entity(
+    tableName = "full_imu_raw",
+    foreignKeys = [
+        ForeignKey(
+            entity = SessionEntity::class,
+            parentColumns = ["sessionId"],
+            childColumns = ["sessionId"],
+            onDelete = CASCADE, // Deleting parent deletes dependents
+            onUpdate = CASCADE, // Updating parent deletes dependents
+        )
+    ],
+    indices = [Index(value = ["sessionId"])]
+)
+data class FullIMURawEntity(
+    @PrimaryKey(autoGenerate = true) val id: Int = 0,
+    val sessionId: Long, // Foreign Key
+    val ax: Short,
+    val ay: Short,
+    val az: Short,
+
+    val gx: Short,
+    val gy: Short,
+    val gz: Short,
+
+    val qx: Float,
+    val qy: Float,
+    val qz: Float,
+    val qw: Float,
+
+    val timestampUs: Long,
+)
