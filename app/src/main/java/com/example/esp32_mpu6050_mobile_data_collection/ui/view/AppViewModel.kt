@@ -84,7 +84,7 @@ class AppViewModel(
 
     // ----- States -------------------------------------------------
     // ---- Holds Session data for query building ----
-    private val _sessionConfigState = MutableStateFlow<SessionConfig>(SessionConfig.NonLiftSession(MotionStates.SENSOR_DRIFT, SensorDataFormats.FULL_IMU_RAW))
+    private val _sessionConfigState = MutableStateFlow<SessionConfig>(SessionConfig.LiftSession())
     val sessionConfigState: StateFlow<SessionConfig> = _sessionConfigState.asStateFlow()
 
     // ---- Holds ui state for UI elements ----
@@ -200,24 +200,27 @@ class AppViewModel(
     }
 
     fun setLiftCategory(category: LiftCategories) {
-        val current = _sessionConfigState.value
-        if (current is SessionConfig.LiftSession) {
-            _sessionConfigState.value = current.copy(liftCategory = category)
+        val config = _sessionConfigState.value
+        check(config is SessionConfig.LiftSession) {
+            "setLiftCategory() called when session is not a LiftSession"
         }
+        _sessionConfigState.value = config.copy(liftCategory = category)
     }
 
     fun setLiftTempo(tempo: Tempos) {
-        val current = _sessionConfigState.value
-        if (current is SessionConfig.LiftSession) {
-            _sessionConfigState.value = current.copy(tempo = tempo)
+        val config = _sessionConfigState.value
+        check(config is SessionConfig.LiftSession) {
+            "setLiftTempo() called when session is not a LiftSession"
         }
+        _sessionConfigState.value = config.copy(tempo = tempo)
     }
 
     fun setRPE(rpe: Int) {
-        val current = _sessionConfigState.value
-        if (current is SessionConfig.LiftSession) {
-            _sessionConfigState.value = current.copy(rpe = rpe)
+        val config = _sessionConfigState.value
+        check(config is SessionConfig.LiftSession) {
+            "setRPE() called when session is not a LiftSession"
         }
+        _sessionConfigState.value = config.copy(rpe = rpe)
     }
 
     fun setSensorDataFormat(format: SensorDataFormats) {
