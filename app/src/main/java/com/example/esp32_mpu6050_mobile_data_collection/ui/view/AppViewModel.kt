@@ -32,6 +32,12 @@ import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 import kotlin.coroutines.cancellation.CancellationException
 
+val DEFAULT_NOISE_MOTION_STATE = MotionStates.SENSOR_DRIFT
+val DEFAULT_LIFT_MOTION_STATE = MotionStates.REP_START
+val DEFAULT_LIFT_CATEGORY = LiftCategories.FLOOR_PULL
+val DEFAULT_LIFT_SPECIFIC_NOISE_MOTION_STATE = MotionStates.SETUP_MOVEMENT
+val DEFAULT_SENSOR_DATA_FORMAT = SensorDataFormats.FULL_IMU_RAW
+
 class AppViewModel(
     private val accelerationRepository: AccelerationRepository,
     private val quaternionRepository: QuaternionRepository,
@@ -45,9 +51,9 @@ class AppViewModel(
         abstract var sensorDataFormat: SensorDataFormats
 
         data class LiftSession(
-            override var motionState: MotionStates = MotionStates.REP_START,
-            override var sensorDataFormat: SensorDataFormats = SensorDataFormats.FULL_IMU_RAW,
-            var liftCategory: LiftCategories = LiftCategories.FLOOR_PULL,
+            override var motionState: MotionStates = DEFAULT_LIFT_MOTION_STATE,
+            override var sensorDataFormat: SensorDataFormats = DEFAULT_SENSOR_DATA_FORMAT,
+            var liftCategory: LiftCategories = DEFAULT_LIFT_CATEGORY,
             var rpe: Int = 7,
             var tempo: Tempos = Tempos.NORMAL
         ) : SessionConfig() {
@@ -61,8 +67,8 @@ class AppViewModel(
         }
 
         data class NonLiftSession(
-            override var motionState: MotionStates = MotionStates.SENSOR_DRIFT,
-            override var sensorDataFormat: SensorDataFormats = SensorDataFormats.FULL_IMU_RAW
+            override var motionState: MotionStates = DEFAULT_NOISE_MOTION_STATE,
+            override var sensorDataFormat: SensorDataFormats = DEFAULT_SENSOR_DATA_FORMAT
         ) : SessionConfig() {
             init {
                 // REFACTOR: implement better type system (i.e LiftMotionState : MotionState) so i don't
