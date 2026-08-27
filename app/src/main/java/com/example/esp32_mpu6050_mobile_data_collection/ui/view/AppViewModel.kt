@@ -314,6 +314,55 @@ class AppViewModel(
         return config.rpe
     }
 
+    /**
+     * Called upon change of session type (noise, lift, lift specific noise) from the UI.
+     *
+     * Preserves the state if the same session type is clicked on
+     */
+    fun setSessionType(type: SessionType) {
+        val current = _sessionConfigState.value
+
+        _sessionConfigState.value = when (type) {
+            SessionType.LIFT -> {
+                if (current is SessionConfig.LiftSession) {
+                    current.copy(
+                        motionState = MotionStates.REP_START
+                    )
+                } else {
+                    SessionConfig.LiftSession(
+                        motionState = MotionStates.REP_START,
+                        sensorDataFormat = current.sensorDataFormat
+                    )
+                }
+            }
+
+            SessionType.NOISE -> {
+                if (current is SessionConfig.NonLiftSession) {
+                    current.copy(
+                        motionState = MotionStates.SENSOR_DRIFT
+                    )
+                } else {
+                    SessionConfig.NonLiftSession(
+                        motionState = MotionStates.SENSOR_DRIFT,
+                        sensorDataFormat = current.sensorDataFormat
+                    )
+                }
+            }
+
+            SessionType.LIFT_SPECIFIC_NOISE -> {
+                if (current is SessionConfig.LiftSpecificNoiseSession) {
+                    current.copy(
+                        motionState = DEFAULT_LIFT_SPECIFIC_NOISE_MOTION_STATE
+                    )
+                } else {
+                    SessionConfig.LiftSpecificNoiseSession(
+                        motionState = DEFAULT_LIFT_SPECIFIC_NOISE_MOTION_STATE,
+                        sensorDataFormat = current.sensorDataFormat
+                    )
+                }
+            }
+        }
+    }
 
     fun startCollection() {
         _uiState.value = _uiState.value.copy(isDataSaveModeOn = true, isNewSession = true)

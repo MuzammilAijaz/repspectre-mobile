@@ -40,6 +40,7 @@ fun SessionManagerScreen(
     appViewModel: AppViewModel,
 ) {
     val uiState by appViewModel.uiState.collectAsState()
+    val sessionConfig by appViewModel.sessionConfigState.collectAsState()
 
     Column(
         verticalArrangement = Arrangement.Center,
@@ -49,10 +50,17 @@ fun SessionManagerScreen(
             .padding(horizontal = 12.dp, vertical = 20.dp)
     ) {
 
-        var typeOfSessionSelection: SessionType by remember { mutableStateOf(SessionType.LIFT) }
+        val typeOfSessionSelection = when (sessionConfig) {
+            is AppViewModel.SessionConfig.LiftSession -> SessionType.LIFT
+            is AppViewModel.SessionConfig.NonLiftSession -> SessionType.NOISE
+            is AppViewModel.SessionConfig.LiftSpecificNoiseSession -> SessionType.LIFT_SPECIFIC_NOISE
+        }
+
         Row {
             Button(
-                onClick = { typeOfSessionSelection = SessionType.LIFT },
+                onClick = {
+                    appViewModel.setSessionType(SessionType.LIFT)
+                },
                 colors = ButtonDefaults.buttonColors(
                     containerColor = if (typeOfSessionSelection == SessionType.LIFT) Color.Green else Color.Gray
                 )
@@ -60,7 +68,9 @@ fun SessionManagerScreen(
                 Text("Lift")
             }
             Button(
-                onClick = { typeOfSessionSelection = SessionType.NOISE },
+                onClick = {
+                    appViewModel.setSessionType(SessionType.NOISE)
+                },
                 colors = ButtonDefaults.buttonColors(
                     containerColor = if (typeOfSessionSelection == SessionType.NOISE) Color.Green else Color.Gray
                 )
@@ -68,7 +78,9 @@ fun SessionManagerScreen(
                 Text("Noise")
             }
             Button(
-                onClick = { typeOfSessionSelection = SessionType.LIFT_SPECIFIC_NOISE },
+                onClick = {
+                    appViewModel.setSessionType(SessionType.LIFT_SPECIFIC_NOISE)
+                },
                 colors = ButtonDefaults.buttonColors(
                     containerColor = if (typeOfSessionSelection == SessionType.LIFT_SPECIFIC_NOISE) Color.Green else Color.Gray
                 )
