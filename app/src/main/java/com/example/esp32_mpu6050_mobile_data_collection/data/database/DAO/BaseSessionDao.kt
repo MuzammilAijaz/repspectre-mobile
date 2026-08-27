@@ -36,6 +36,9 @@ interface BaseSessionDao<T> {
     @androidx.room.Query("DELETE FROM session")
     suspend fun deleteAllSessions()
 
+    @androidx.room.Query("DELETE FROM session WHERE sessionId = :sessionId")
+    suspend fun deleteSession(sessionId: Long)
+
     @androidx.room.Query("DELETE FROM sqlite_sequence WHERE name = 'session'")
     suspend fun resetAutoIncrementCounter()
 

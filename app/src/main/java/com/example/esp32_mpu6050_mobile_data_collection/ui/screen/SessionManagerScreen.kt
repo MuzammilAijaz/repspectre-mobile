@@ -187,6 +187,34 @@ fun SessionManagerScreen(
         if (uiState.isDataSaveModeOn) {
             Text(text = "Time: ${(uiState.duration) / 1000}")
         }
+
+        var showDialog by remember { mutableStateOf(false) }
+        if (!uiState.isDataSaveModeOn) {
+            Button(
+                onClick = { showDialog = true }
+            ) {
+                Text("Clear latest recorded session")
+            }
+            if (showDialog) {
+                AlertDialog(
+                    onDismissRequest = { showDialog = false },
+                    text = { Text("Clear latest record?") },
+                    confirmButton = {
+                        TextButton(onClick = {
+                            appViewModel.clearLatestRecordedSession()
+                            showDialog = false
+                        }) {
+                            Text("Yes")
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { showDialog = false }) {
+                            Text("No")
+                        }
+                    }
+                )
+            }
+        }
     }
 }
 

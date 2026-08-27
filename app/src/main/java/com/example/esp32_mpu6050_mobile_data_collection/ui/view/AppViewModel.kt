@@ -1,5 +1,7 @@
 package com.example.esp32_mpu6050_mobile_data_collection.ui.view
 
+import android.R
+import android.R.attr.category
 import android.service.autofill.Validators.or
 import android.util.Log
 import androidx.lifecycle.ViewModel
@@ -360,6 +362,23 @@ class AppViewModel(
                         sensorDataFormat = current.sensorDataFormat
                     )
                 }
+            }
+        }
+    }
+
+    fun clearLatestRecordedSession() {
+        viewModelScope.launch(Dispatchers.IO) {
+            // REFACTOR: a common SessionRepository object would make things a lot simpler here...
+
+            // Delete the latest session, making sure its only done once.
+            // NOTE: all these .deleteLatestSession point to the same base repo (as they inherit from
+            // [SessionRepository] , which also means that it doesn't matter which one is called.
+            when (_sessionConfigState.value.sensorDataFormat) {
+                SensorDataFormats.QUATERNION_ORIENTATION -> quaternionRepository.deleteLatestSession()
+                SensorDataFormats.ACCELERATION_RAW -> accelerationRepository.deleteLatestSession()
+                SensorDataFormats.IMU_RAW -> rawDataRepository.deleteLatestSession()
+                SensorDataFormats.FULL_IMU_RAW -> fullIMURawRepository.deleteLatestSession()
+                else -> error("clearLatestRecord() called on a sensor format which doesn't have a repository")
             }
         }
     }

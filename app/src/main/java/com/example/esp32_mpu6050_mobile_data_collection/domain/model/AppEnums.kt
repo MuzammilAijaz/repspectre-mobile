@@ -96,6 +96,7 @@ enum class SensorDataFormats {
     QUATERNION_ORIENTATION,
     LINEAR_ACCELERATION,
     FULL_IMU_RAW,
+    IMU_RAW,
     FULL_IMU_PROCESSED,
     ALL_FEATURES
 }

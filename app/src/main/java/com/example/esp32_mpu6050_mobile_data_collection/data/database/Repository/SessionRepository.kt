@@ -77,6 +77,11 @@ open class SessionRepository<T>(
         newSession = true
     }
 
+    suspend fun deleteLatestSession() {
+        val latestId = dao.getLatestSessionId()
+        dao.deleteSession(latestId)
+    }
+
     suspend fun stopOldSession() {
         val latestId = dao.getLatestSessionId()
         dao.updateSessionEndTime(latestId, System.currentTimeMillis())
