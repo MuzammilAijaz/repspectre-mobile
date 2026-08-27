@@ -135,10 +135,15 @@ fun ConnectDeviceScreen(device: BluetoothDevice, appViewModel: AppViewModel, onD
 
         when(message) {
             is SensorData.FullIMURaw -> {
-                Text(text = "Accel: ${message.ax}, ${message.ay}, ${message.az}")
-                Text(text = "Gyro: ${message.gx}, ${message.gy}, ${message.gz}")
-                Text(text = "Quat: ${message.qx}, ${message.qy}, ${message.qz}, ${message.qw}")
-                Text(text = "Timestamp: ${message.timestampUs} us")
+                Text(text = "Accel: %.3f, %.3f, %.3f".format(message.ax, message.ay, message.az))
+                Text(text = "Gyro: %.3f, %.3f, %.3f".format(message.gx, message.gy, message.gz))
+                Text(text = "Quat: %.3f, %.3f, %.3f, %.3f".format(message.qx, message.qy, message.qz, message.qw))
+
+                val totalSeconds = message.timestampUs / 1_000_000
+                val hours = totalSeconds / 3600
+                val minutes = (totalSeconds % 3600) / 60
+                val seconds = totalSeconds % 60
+                Text(text = "Timestamp: %02d:%02d:%02d".format(hours, minutes, seconds))
             }
             is SensorData.Quaternion ->  {
                 // Log.d("Sensor Data", "Quaternions: ${message.x} ${message.y} ${message.z} ${message.w}")
