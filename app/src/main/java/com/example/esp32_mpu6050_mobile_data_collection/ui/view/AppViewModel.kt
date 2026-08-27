@@ -1,5 +1,6 @@
 package com.example.esp32_mpu6050_mobile_data_collection.ui.view
 
+import android.service.autofill.Validators.or
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
@@ -22,6 +23,7 @@ import com.example.esp32_mpu6050_mobile_data_collection.domain.model.LiftCategor
 import com.example.esp32_mpu6050_mobile_data_collection.domain.model.MotionStates
 import com.example.esp32_mpu6050_mobile_data_collection.domain.model.SensorDataFormats
 import com.example.esp32_mpu6050_mobile_data_collection.domain.model.Tempos
+import com.example.esp32_mpu6050_mobile_data_collection.ui.screen.SessionType
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.Flow
@@ -75,6 +77,19 @@ class AppViewModel(
                 // have to do this check
                 require(!motionState.requiresLiftContext) {
                     "motionState should be set to a MotionState which has requiresLiftContext == false"
+                }
+            }
+        }
+        data class LiftSpecificNoiseSession(
+            override var motionState: MotionStates = DEFAULT_LIFT_SPECIFIC_NOISE_MOTION_STATE,
+            override var sensorDataFormat: SensorDataFormats = DEFAULT_SENSOR_DATA_FORMAT,
+            var liftCategory: LiftCategories = DEFAULT_LIFT_CATEGORY,
+        ) : SessionConfig() {
+            init {
+                // REFACTOR: implement better type system (i.e. LiftMotionState : MotionState) so i don't
+                // have to do this check
+                require(motionState.requiresLiftContext) {
+                    "motionState should be set to a MotionState which has requiresLiftContext == true"
                 }
             }
         }
@@ -207,10 +222,11 @@ class AppViewModel(
 
     fun setLiftCategory(category: LiftCategories) {
         val config = _sessionConfigState.value
-        check(config is SessionConfig.LiftSession) {
-            "setLiftCategory() called when session is not a LiftSession"
+        _sessionConfigState.value = when (config) {
+            is SessionConfig.LiftSession -> config.copy(liftCategory = category)
+            is SessionConfig.LiftSpecificNoiseSession -> config.copy(liftCategory = category)
+            else -> error("NoiseSession cannot have a lift category")
         }
-        _sessionConfigState.value = config.copy(liftCategory = category)
     }
 
     fun setLiftTempo(tempo: Tempos) {
@@ -234,35 +250,52 @@ class AppViewModel(
         _sessionConfigState.value = when (current) {
             is SessionConfig.LiftSession -> current.copy(sensorDataFormat = format)
             is SessionConfig.NonLiftSession -> current.copy(sensorDataFormat = format)
+            is SessionConfig.LiftSpecificNoiseSession -> current.copy(sensorDataFormat = format)
         }
     }
 
+    /**
+     * Change the motion state, only within the limits of that session type
+     *
+     * This will fail if the wrong motion state is called on the wrong session type
+     * i.e. Calling setMotionState(MotionStates.REP_START) when config is a NoiseSession
+     */
     fun setMotionState(motionState: MotionStates) {
         val current = _sessionConfigState.value
+
         _sessionConfigState.value = when (current) {
             is SessionConfig.LiftSession -> {
-                if (motionState.requiresLiftContext) {
-                    current.copy(motionState = motionState)
-                } else {
-                    SessionConfig.NonLiftSession(motionState, current.sensorDataFormat)
+                check(motionState.requiresLiftContext) {
+                    "LiftSession cannot use a non-lift motion state"
                 }
+
+                current.copy(motionState = motionState)
             }
-            is SessionConfig.NonLiftSession -> {
-                if (motionState.requiresLiftContext) {
-                    SessionConfig.LiftSession(motionState = motionState, sensorDataFormat = current.sensorDataFormat)
-                } else {
-                    current.copy(motionState = motionState)
+
+            is SessionConfig.LiftSpecificNoiseSession -> {
+                check(motionState.requiresLiftContext) {
+                    "LiftSpecificNoiseSession cannot use a lift motion state"
                 }
+
+                current.copy(motionState = motionState)
+            }
+
+            is SessionConfig.NonLiftSession -> {
+                check(!motionState.requiresLiftContext) {
+                    "NonLiftSession cannot use a lift motion state"
+                }
+
+                current.copy(motionState = motionState)
             }
         }
     }
 
     fun getCurrentLiftCategory(): LiftCategories {
-        val config = _sessionConfigState.value
-        check(config is SessionConfig.LiftSession) {
-            "getCurrentLiftCategory() called when session is not a LiftSession"
+        return when (val config = _sessionConfigState.value) {
+            is SessionConfig.LiftSession -> config.liftCategory
+            is SessionConfig.LiftSpecificNoiseSession -> config.liftCategory
+            else -> error("NoiseSession cannot have a lift category")
         }
-        return config.liftCategory
     }
 
     fun getCurrentLiftTempo(): Tempos {
