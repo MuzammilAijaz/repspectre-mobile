@@ -11,7 +11,7 @@ data class DeviceConnectionState(
     val mtu: Int,
     val services: List<BluetoothGattService> = emptyList(),
     val messageSent: Boolean = false,
-    val messageReceived: SensorData = SensorData.FullIMURaw(0, 0, 0, 0, 0, 0, 0f, 0f, 0f, 0f, 0L),
+    val messageReceived: SensorData = SensorData.FullIMURaw(0f, 0f, 0f, 0f, 0f, 0f, 0f, 0f, 0f, 0f, 0L),
 ) {
     companion object {
         val None = DeviceConnectionState(null, -1, -1)

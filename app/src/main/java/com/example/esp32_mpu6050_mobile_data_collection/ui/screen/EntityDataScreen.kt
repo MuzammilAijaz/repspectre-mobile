@@ -83,11 +83,11 @@ fun DataItem(
             .fillMaxWidth()
             .height(32.dp) // give it some vertical space
     ) {
-        Text(text = "%.2f".format(entity.ax.toFloat()))
+        Text(text = "%.3f".format(entity.ax))
         VerticalDivider(Modifier, DividerDefaults.Thickness, DividerDefaults.color)
-        Text(text = "%.2f".format(entity.ay.toFloat()))
+        Text(text = "%.3f".format(entity.ay))
         VerticalDivider(Modifier, DividerDefaults.Thickness, DividerDefaults.color)
-        Text(text = "%.2f".format(entity.az.toFloat()))
+        Text(text = "%.3f".format(entity.az))
         VerticalDivider(Modifier, DividerDefaults.Thickness, DividerDefaults.color)
     }
 }

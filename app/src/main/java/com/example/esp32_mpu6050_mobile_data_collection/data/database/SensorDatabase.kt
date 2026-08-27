@@ -15,7 +15,7 @@ import com.example.esp32_mpu6050_mobile_data_collection.data.database.entity.Qua
 import com.example.esp32_mpu6050_mobile_data_collection.data.database.entity.RawDataEntity
 import com.example.esp32_mpu6050_mobile_data_collection.data.database.entity.SessionEntity
 
-@Database(entities = [AccelerationEntity::class, SessionEntity::class, QuaternionEntity::class, RawDataEntity::class, FullIMURawEntity::class, LiftContextEntity::class, LiftCategoryTypeEntity::class, MotionStateTypeEntity::class, SensorDataFormatType::class, TempoTypeEntity::class], version = 17, exportSchema = false)
+@Database(entities = [AccelerationEntity::class, SessionEntity::class, QuaternionEntity::class, RawDataEntity::class, FullIMURawEntity::class, LiftContextEntity::class, LiftCategoryTypeEntity::class, MotionStateTypeEntity::class, SensorDataFormatType::class, TempoTypeEntity::class], version = 18, exportSchema = false)
 abstract class SensorDatabase : RoomDatabase() {
 
     abstract fun accelerationDao(): AccelerationDao

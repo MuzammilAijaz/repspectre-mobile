@@ -22,13 +22,13 @@ import androidx.room.PrimaryKey
 data class FullIMURawEntity(
     @PrimaryKey(autoGenerate = true) val id: Int = 0,
     val sessionId: Long, // Foreign Key
-    val ax: Short,
-    val ay: Short,
-    val az: Short,
+    val ax: Float,
+    val ay: Float,
+    val az: Float,
 
-    val gx: Short,
-    val gy: Short,
-    val gz: Short,
+    val gx: Float,
+    val gy: Float,
+    val gz: Float,
 
     val qx: Float,
     val qy: Float,

@@ -10,6 +10,8 @@ import android.os.Build
 import android.util.Log
 import androidx.annotation.RequiresApi
 import androidx.annotation.RequiresPermission
+import com.example.esp32_mpu6050_mobile_data_collection.data.ACCEL_LSB_PER_G
+import com.example.esp32_mpu6050_mobile_data_collection.data.GYRO_LSB_PER_DPS
 import com.example.esp32_mpu6050_mobile_data_collection.data.SensorData
 import com.example.esp32_mpu6050_mobile_data_collection.service.AppService
 import com.example.esp32_mpu6050_mobile_data_collection.service.CHARACTERISTIC_UUID
@@ -261,13 +263,13 @@ class AppBluetoothGattCallback(
         val timestampUs = buffer.int.toLong() and 0xFFFFFFFFL
 
         val data = SensorData.FullIMURaw(
-            ax = accelX,
-            ay = accelY,
-            az = accelZ,
+            ax = accelX / ACCEL_LSB_PER_G,
+            ay = accelY / ACCEL_LSB_PER_G,
+            az = accelZ / ACCEL_LSB_PER_G,
 
-            gx = gyroX,
-            gy = gyroY,
-            gz = gyroZ,
+            gx = gyroX / GYRO_LSB_PER_DPS,
+            gy = gyroY / GYRO_LSB_PER_DPS,
+            gz = gyroZ / GYRO_LSB_PER_DPS,
 
             qx = quaternionX,
             qy = quaternionY,
