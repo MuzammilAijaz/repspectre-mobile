@@ -1,5 +1,6 @@
 package com.example.esp32_mpu6050_mobile_data_collection.ui.screen
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -18,14 +19,20 @@ import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
-import com.example.esp32_mpu6050_mobile_data_collection.data.database.entity.QuaternionEntity
+import com.example.esp32_mpu6050_mobile_data_collection.data.database.entity.FullIMURawEntity
+import com.example.esp32_mpu6050_mobile_data_collection.ui.screen.ENTITY_TO_DISPLAY_PER_SECTION
+
+val ENTITY_TO_DISPLAY_PER_SECTION = 5
 
 @Composable
 fun EntityDataScreen(
-    quaternionEntities: List<QuaternionEntity>,
+    fullIMURawValues: List<FullIMURawEntity>,
     onBackButtonPress: () -> Unit,
 ) {
+    val sessions = fullIMURawValues.groupBy { it.sessionId }
+
     Column(
         modifier = Modifier.padding(14.dp)
     ) {
@@ -34,13 +41,32 @@ fun EntityDataScreen(
         ) {
             Text("Back")
         }
+
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(8.dp)
         ) {
-            items(quaternionEntities) { entity ->
-                DataItem(entity)
-                HorizontalDivider(Modifier, DividerDefaults.Thickness, DividerDefaults.color)
+            sessions.forEach { (sessionId, entities) ->
+
+                item {
+                    Text(
+                        text = "Session $sessionId",
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(Color.LightGray)
+                            .padding(8.dp)
+                    )
+                }
+
+                items(entities.take(ENTITY_TO_DISPLAY_PER_SECTION)) { entity ->
+                    DataItem(entity)
+
+                    HorizontalDivider(
+                        Modifier,
+                        DividerDefaults.Thickness,
+                        DividerDefaults.color
+                    )
+                }
             }
         }
     }
@@ -48,7 +74,7 @@ fun EntityDataScreen(
 
 @Composable
 fun DataItem(
-    entity: QuaternionEntity
+    entity: FullIMURawEntity
 ) {
     Row(
         horizontalArrangement = Arrangement.SpaceEvenly,
@@ -57,13 +83,11 @@ fun DataItem(
             .fillMaxWidth()
             .height(32.dp) // give it some vertical space
     ) {
-        Text(text = "%.2f".format(entity.x))
+        Text(text = "%.2f".format(entity.ax.toFloat()))
         VerticalDivider(Modifier, DividerDefaults.Thickness, DividerDefaults.color)
-        Text(text = "%.2f".format(entity.y))
+        Text(text = "%.2f".format(entity.ay.toFloat()))
         VerticalDivider(Modifier, DividerDefaults.Thickness, DividerDefaults.color)
-        Text(text = "%.2f".format(entity.z))
-        VerticalDivider(Modifier, DividerDefaults.Thickness, DividerDefaults.color)
-        Text(text = "%.2f".format(entity.w))
+        Text(text = "%.2f".format(entity.az.toFloat()))
         VerticalDivider(Modifier, DividerDefaults.Thickness, DividerDefaults.color)
     }
 }

@@ -79,7 +79,7 @@ fun AppScreen() {
         }
         composable(route = ScreenRoutes.DataScreen.name) {
             EntityDataScreen(
-                appViewModel.getAllQuaternions().collectAsState(initial = emptyList()).value
+                appViewModel.getFullIMURawValues().collectAsState(initial = emptyList()).value
             ) {
                 navController.navigate(ScreenRoutes.BluetoothDeviceScreen.name)
             }

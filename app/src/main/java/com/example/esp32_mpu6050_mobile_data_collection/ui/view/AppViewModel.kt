@@ -417,6 +417,10 @@ class AppViewModel(
         return quaternionRepository.getAllItemsStream()
     }
 
+    fun getFullIMURawValues(): Flow<List<FullIMURawEntity>> {
+        return fullIMURawRepository.getAllItemsStream()
+    }
+
     private var dataSaveJob: Job? = null
 
     /** This function is responsible for fetching the latest values from the repository
