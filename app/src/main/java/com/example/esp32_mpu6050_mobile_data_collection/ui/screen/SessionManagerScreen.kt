@@ -2,8 +2,8 @@ package com.example.esp32_mpu6050_mobile_data_collection.ui.screen
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -11,9 +11,22 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -25,9 +38,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.esp32_mpu6050_mobile_data_collection.data.database.Repository.Session
 import com.example.esp32_mpu6050_mobile_data_collection.domain.model.LiftCategories
 import com.example.esp32_mpu6050_mobile_data_collection.domain.model.MotionStates
 import com.example.esp32_mpu6050_mobile_data_collection.domain.model.SensorDataFormats
@@ -91,17 +106,38 @@ fun SessionManagerScreen(
 
         Spacer(modifier = Modifier.padding(vertical = 5.dp))
 
-        if (typeOfSessionSelection == SessionType.LIFT || typeOfSessionSelection == SessionType.LIFT_SPECIFIC_NOISE) {
+        if (typeOfSessionSelection == SessionType.LIFT) {
             Text(text = "Lift Categories", modifier = Modifier.fillMaxWidth().background(Color.LightGray).padding(8.dp))
-            SessionCategorySelectionRow(LiftCategories.entries) { selectedOption ->
+            val currentCategory = appViewModel.getCurrentLiftCategory()
+            SessionCategorySelectionRow(
+                categories = LiftCategories.entries,
+                selectedCategory = currentCategory
+            ) { selectedOption ->
                 appViewModel.setLiftCategory(selectedOption)
             }
             Spacer(modifier = Modifier.padding(vertical = 5.dp))
 
             Text(text = "Lift Context", modifier = Modifier.fillMaxWidth().background(Color.LightGray).padding(8.dp))
-            SessionLiftContextSelectionRow(Tempos.entries) { selectedTempo, selectedRPE ->
-                appViewModel.setLiftTempo(selectedTempo)
-                appViewModel.setRPE(selectedRPE)
+            val currentTempo = appViewModel.getCurrentLiftTempo()
+            val currentRpe = appViewModel.getCurrentRpe()
+            SessionLiftContextSelectionRow(
+                tempos = Tempos.entries,
+                selectedTempo = currentTempo,
+                rpe = currentRpe,
+                onTempoChange = { appViewModel.setLiftTempo(it) },
+                onRpeChange = { appViewModel.setRPE(it) }
+            )
+            Spacer(modifier = Modifier.padding(vertical = 5.dp))
+        }
+
+        if (typeOfSessionSelection == SessionType.LIFT_SPECIFIC_NOISE) {
+            Text(text = "Lift Categories", modifier = Modifier.fillMaxWidth().background(Color.LightGray).padding(8.dp))
+            val currentCategory = appViewModel.getCurrentLiftCategory()
+            SessionCategorySelectionRow(
+                categories = LiftCategories.entries,
+                selectedCategory = currentCategory
+            ) { selectedOption ->
+                appViewModel.setLiftCategory(selectedOption)
             }
             Spacer(modifier = Modifier.padding(vertical = 5.dp))
         }
@@ -113,7 +149,8 @@ fun SessionManagerScreen(
             )
             // Noise sessions DO NOT require lift context
             SessionMotionStateSelectionRow(
-                MotionStates.entries.filter { !it.requiresLiftContext }
+                motionStates = MotionStates.entries.filter { !it.requiresLiftContext },
+                selectedState = sessionConfig.motionState
             ) { selectedOption ->
                 appViewModel.setMotionState(selectedOption)
             }
@@ -122,7 +159,8 @@ fun SessionManagerScreen(
         else if (typeOfSessionSelection == SessionType.LIFT_SPECIFIC_NOISE){
             // only display states which require lift context if its lift session
             SessionMotionStateSelectionRow(
-                MotionStates.entries.filter { it.requiresLiftContext }
+                motionStates = MotionStates.entries.filter { it.requiresLiftContext },
+                selectedState = sessionConfig.motionState
             ) { selectedOption ->
                 appViewModel.setMotionState(selectedOption)
             }
@@ -130,7 +168,10 @@ fun SessionManagerScreen(
         }
 
         Text(text = "Data Formats", modifier = Modifier.fillMaxWidth().background(Color.LightGray).padding(8.dp))
-        SessionSensorDataFormatSelectionScreen(SensorDataFormats.entries) { selectedOption ->
+        SessionSensorDataFormatSelectionRow(
+            dataFormats = SensorDataFormats.entries,
+            selectedFormat = sessionConfig.sensorDataFormat
+        ) { selectedOption ->
             appViewModel.setSensorDataFormat(selectedOption)
         }
         Spacer(modifier = Modifier.padding(vertical = 5.dp))
@@ -150,120 +191,221 @@ fun SessionManagerScreen(
 }
 
 @Composable
-fun SessionCategorySelectionRow(category: List<LiftCategories>, onSelectionChange: (LiftCategories) -> Unit) {
-    FlowRow(
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalArrangement = Arrangement.Center
-    ) {
-        var selectedOption by remember { mutableStateOf(category.first()) }
-        category.forEach { label ->
-            Button(
-                onClick = {
-                    selectedOption = label
-                    onSelectionChange(label)
-                },
-                modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = if (selectedOption == label) Color.Green else Color.Gray,
-                )
-            ) {
-                Text(label.name)
-            }
-        }
-    }
+fun SessionCategorySelectionRow(
+    categories: List<LiftCategories>,
+    selectedCategory: LiftCategories?,
+    onSelectionChange: (LiftCategories) -> Unit
+) {
+    SelectionDropdown(
+        items = categories,
+        selectedItem = selectedCategory,
+        onSelectionChange = onSelectionChange,
+        label = "Lift Category",
+        itemLabel = { it.name },
+    )
 }
 
 @Composable
-fun SessionMotionStateSelectionRow(motionState: List<MotionStates>, onSelectionChange: (MotionStates) -> Unit) {
-    FlowRow(
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalArrangement = Arrangement.Center
-    ) {
-        var selectedOption by remember { mutableStateOf(motionState.first()) }
-        motionState.forEach { label ->
-            Button(
-                onClick = {
-                    selectedOption = label
-                    onSelectionChange(label)
-                },
-                modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = if (selectedOption == label) Color.Green else Color.Gray,
-                )
-            ) {
-                Text(label.name)
-            }
-        }
-    }
+fun SessionMotionStateSelectionRow(
+    motionStates: List<MotionStates>,
+    selectedState: MotionStates?,
+    onSelectionChange: (MotionStates) -> Unit
+) {
+    SelectionDropdown(
+        items = motionStates,
+        selectedItem = selectedState,
+        onSelectionChange = onSelectionChange,
+        label = "Motion State",
+        itemLabel = { it.name },
+        itemDescription = { it.description }
+    )
 }
 
 @Composable
-fun SessionLiftContextSelectionRow(tempo: List<Tempos>, onSelectionChange: (Tempos, Int) -> Unit) {
-    FlowRow(
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalArrangement = Arrangement.Center
-    ) {
-        var rpe by remember { mutableStateOf("") }
-        var selectedOption by remember { mutableStateOf(tempo.first()) }
+fun SessionLiftContextSelectionRow(
+    tempos: List<Tempos>,
+    selectedTempo: Tempos?,
+    rpe: Int,
+    onTempoChange: (Tempos) -> Unit,
+    onRpeChange: (Int) -> Unit
+) {
+    var rpeText by remember(rpe) { mutableStateOf(rpe.toString()) }
 
-        TextField(
-            value = rpe,
-            label = { Text("Enter RPE") },
-            onValueChange = { newVal ->
-                val rpeInt = newVal.toIntOrNull()
-                if (rpeInt != null && rpeInt <= 10 && rpeInt >= 0) {
-                    rpe = newVal
-                    onSelectionChange(selectedOption, rpe.toIntOrNull() ?: 7)
-                }
-            },
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        SelectionDropdown(
+            items = tempos,
+            selectedItem = selectedTempo,
+            onSelectionChange = onTempoChange,
+            label = "Tempo",
+            itemLabel = { it.name }
         )
 
-        tempo.forEach { label ->
-            Button(
-                onClick = {
-                    selectedOption = label
-                    onSelectionChange(label, rpe.toIntOrNull() ?: 7)
-                },
-                modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = if (selectedOption == label) Color.Green else Color.Gray,
-                )
-            ) {
-                Text(label.name)
-            }
-        }
+        OutlinedTextField(
+            value = rpeText,
+            onValueChange = { newVal ->
+                if (newVal.isEmpty()) {
+                    rpeText = ""
+                } else {
+                    val rpeInt = newVal.toIntOrNull()
+                    if (rpeInt != null && rpeInt in 0..10) {
+                        rpeText = newVal
+                        onRpeChange(rpeInt)
+                    }
+                }
+            },
+            label = { Text("RPE (0-10)") },
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true
+        )
     }
 }
 
 @Composable
-fun SessionSensorDataFormatSelectionScreen(dataFormats: List<SensorDataFormats>, onSelectionChange: (SensorDataFormats) -> Unit) {
-    FlowRow(
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalArrangement = Arrangement.Center
-    ) {
-        var selectedOption by remember { mutableStateOf(dataFormats.first()) }
-        dataFormats.forEach { label ->
-            Button(
-                onClick = {
-                    selectedOption = label
-                    onSelectionChange(label)
-                },
-                modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = if (selectedOption == label) Color.Green else Color.Gray,
-                )
-            ) {
-                Text(label.name)
-            }
-        }
-    }
+fun SessionSensorDataFormatSelectionRow(
+    dataFormats: List<SensorDataFormats>,
+    selectedFormat: SensorDataFormats?,
+    onSelectionChange: (SensorDataFormats) -> Unit
+) {
+    SelectionDropdown(
+        items = dataFormats,
+        selectedItem = selectedFormat,
+        onSelectionChange = onSelectionChange,
+        label = "Data Format",
+        itemLabel = { it.name }
+    )
 }
 
 enum class SessionType {
     LIFT,
     NOISE,
     LIFT_SPECIFIC_NOISE,
+}
+
+//==============================================================================
+// | Generic Composable
+//==============================================================================
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun <T> SelectionDropdown(
+    items: List<T>,
+    selectedItem: T?,
+    onSelectionChange: (T) -> Unit,
+    label: String,
+    itemLabel: (T) -> String,
+    itemDescription: ((T) -> String)? = null,
+    modifier: Modifier = Modifier
+) {
+    var expanded by remember { mutableStateOf(false) }
+    var descriptionItem by remember { mutableStateOf<T?>(null) }
+
+    Box(
+        modifier = modifier
+    ) {
+        ExposedDropdownMenuBox(
+            expanded = expanded,
+            onExpandedChange = {
+                expanded = !expanded
+            },
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            OutlinedTextField(
+                value = selectedItem?.let(itemLabel) ?: "Select $label",
+                onValueChange = {},
+                readOnly = true,
+                label = {
+                    Text(label)
+                },
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedTextColor = Color.Black,
+                    unfocusedTextColor = Color.Black,
+                ),
+                trailingIcon = {
+                    ExposedDropdownMenuDefaults.TrailingIcon(
+                        expanded = expanded
+                    )
+                },
+                modifier = Modifier
+                    .menuAnchor()
+                    .fillMaxWidth(),
+                singleLine = true
+            )
+
+            ExposedDropdownMenu(
+                expanded = expanded,
+                onDismissRequest = {
+                    expanded = false
+                },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                items.forEach { item ->
+
+                    DropdownMenuItem(
+                        text = {
+                            Text(
+                                text = itemLabel(item),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        },
+                        leadingIcon = {
+                            if (selectedItem == item) {
+                                Icon(
+                                    imageVector = Icons.Default.Check,
+                                    contentDescription = "Selected"
+                                )
+                            }
+                        },
+                        trailingIcon = {
+                            if (itemDescription != null) {
+                                IconButton(
+                                    onClick = {
+                                        descriptionItem = item
+                                    }
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Info,
+                                        contentDescription = "Description"
+                                    )
+                                }
+                            }
+                        },
+                        onClick = {
+                            onSelectionChange(item)
+                            expanded = false
+                        }
+                    )
+                }
+            }
+        }
+
+        descriptionItem?.let { item ->
+            AlertDialog(
+                onDismissRequest = {
+                    descriptionItem = null
+                },
+                title = {
+                    Text(itemLabel(item))
+                },
+                text = {
+                    Text(itemDescription!!(item))
+                },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            descriptionItem = null
+                        }
+                    ) {
+                        Text("Close")
+                    }
+                }
+            )
+        }
+    }
 }
 
 @Preview
