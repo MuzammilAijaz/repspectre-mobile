@@ -189,14 +189,19 @@ class AppBluetoothGattCallback(
     /* Old API (android API <=12) : uses 2 arg method
      * New API (android API >=13) : uses 3 arg method
      */
+    @Deprecated("Deprecated in Java")
     override fun onCharacteristicChanged(
         gatt: BluetoothGatt?,
         characteristic: BluetoothGattCharacteristic?
     ) {
         super.onCharacteristicChanged(gatt, characteristic)
-        Log.d("BluetoothCallback", "Notification")
-        val value = characteristic?.value
-        doOnRead(value ?: byteArrayOf())
+
+        // Avoid improper calls to this function
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
+            Log.d("BluetoothCallback", "Notification")
+            val value = characteristic?.value
+            doOnRead(value ?: byteArrayOf())
+        }
     }
 
     override fun onCharacteristicChanged(
@@ -204,9 +209,11 @@ class AppBluetoothGattCallback(
         characteristic: BluetoothGattCharacteristic,
         value: ByteArray
     ) {
+        // RESEARCH:
+        // WARN: This calls the 2 arg function???!!!
         super.onCharacteristicChanged(gatt, characteristic, value)
         Log.d("BluetoothCallback", "Notification")
-        doOnRead(value)
+            doOnRead(value)
     }
 
     // Helpers
